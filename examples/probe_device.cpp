@@ -27,11 +27,11 @@ static void onDeviceUpdate(void*, const Event& evt, boost::asio::yield_context&)
     switch (evt.type)
     {
         case Event::EventType::deviceAdded: {
-            std::cout << "Device added " << static_cast<int>(evt.eid) << '\n';
+            std::cout << "Device added " << static_cast<int>(evt.id) << '\n';
         }
         break;
         case Event::EventType::deviceRemoved: {
-            std::cout << "Device removed " << static_cast<int>(evt.eid) << '\n';
+            std::cout << "Device removed " << static_cast<int>(evt.id) << '\n';
         }
         break;
     }

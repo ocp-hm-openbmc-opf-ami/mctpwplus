@@ -22,12 +22,53 @@
 #include <optional>
 #include <sdbusplus/asio/connection.hpp>
 #include <string>
+#include <utility>
 
 namespace mctpw
 {
 class MCTPImpl;
 /// MCTP Endpoint Id
-using eid_t = uint8_t;
+
+using NetworkID = uint32_t;
+using EndpointID = uint8_t;
+
+struct DeviceID
+{
+    DeviceID() = default;
+    constexpr DeviceID(EndpointID eidVal, NetworkID nwid) :
+        id((nwid << 8) | eidVal)
+    {
+    }
+    uint32_t id;
+    bool operator<(const DeviceID& rhs) const
+    {
+        return id < rhs.id;
+    }
+    constexpr bool operator==(const DeviceID& rhs) const
+    {
+        return id == rhs.id;
+    }
+    constexpr uint8_t mctpEid() const
+    {
+        return id & 0xFF;
+    }
+};
+} // namespace mctpw
+
+namespace std
+{
+template <>
+struct hash<mctpw::DeviceID>
+{
+    size_t operator()(const mctpw::DeviceID& val) const
+    {
+        return std::hash<decltype(val.id)>()(val.id);
+    }
+};
+} // namespace std
+
+namespace mctpw
+{
 using ByteArray = std::vector<uint8_t>;
 
 /**
@@ -161,13 +202,13 @@ struct Event
         deviceRemoved,
     };
     EventType type;
-    eid_t eid;
+    DeviceID id;
 };
 
 using ReconfigurationCallback =
     std::function<void(void*, const Event&, boost::asio::yield_context& yield)>;
 using ReceiveMessageCallback =
-    std::function<void(void*, eid_t, bool, uint8_t, const ByteArray&, int)>;
+    std::function<void(void*, DeviceID, bool, uint8_t, const ByteArray&, int)>;
 
 /**
  * @brief Wrapper class to access MCTP functionalities
@@ -178,9 +219,9 @@ class MCTPWrapper
   public:
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
-    /* Endpoint map entry: eid_t,pair(bus,service) */
+    /* Endpoint map entry: DeviceID,pair(bus,service) */
     using EndpointMap =
-        std::unordered_map<uint8_t, std::pair<unsigned, std::string>>;
+        std::unordered_map<DeviceID, std::pair<unsigned, std::string>>;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
@@ -255,7 +296,7 @@ class MCTPWrapper
      * @param dstEId Destination MCTP Endpoint ID
      *
      */
-    void triggerMCTPDeviceDiscovery(const eid_t dstEId);
+    void triggerMCTPDeviceDiscovery(const DeviceID dstEId);
 
     /**
      * @brief Reserve bandwidth for EID
@@ -286,7 +327,7 @@ class MCTPWrapper
      * @param request MCTP request byte array
      * @param timeout MCTP receive timeout
      */
-    void sendReceiveAsync(ReceiveCallback receiveCb, eid_t dstEId,
+    void sendReceiveAsync(ReceiveCallback receiveCb, DeviceID dstEId,
                           const ByteArray& request,
                           std::chrono::milliseconds timeout);
 
@@ -301,7 +342,7 @@ class MCTPWrapper
      * error code and response byte array
      */
     std::pair<boost::system::error_code, ByteArray>
-        sendReceiveYield(boost::asio::yield_context yield, eid_t dstEId,
+        sendReceiveYield(boost::asio::yield_context yield, DeviceID dstEId,
                          const ByteArray& request,
                          std::chrono::milliseconds timeout);
     /**
@@ -316,7 +357,7 @@ class MCTPWrapper
      * was originated by the endpoint that is the source of the message
      * @param request MCTP request byte array
      */
-    void sendAsync(const SendCallback& callback, const eid_t dstEId,
+    void sendAsync(const SendCallback& callback, const DeviceID dstEId,
                    const uint8_t msgTag, const bool tagOwner,
                    const ByteArray& request);
     /**
@@ -332,7 +373,7 @@ class MCTPWrapper
      * error_code and dbus send method call return value
      */
     std::pair<boost::system::error_code, int>
-        sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
+        sendYield(boost::asio::yield_context& yield, const DeviceID dstEId,
                   const uint8_t msgTag, const bool tagOwner,
                   const ByteArray& request);
     /// MCTP Configuration to store message type and vendor defined properties

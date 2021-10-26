@@ -27,10 +27,37 @@ using DictType = boost::container::flat_map<T1, T2>;
 using MctpPropertiesVariantType =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
                  uint8_t, std::vector<uint8_t>>;
-using eid_t = uint8_t;
 
 namespace mctpw
 {
+
+template <typename Property>
+static auto
+    readPropertyValue(sdbusplus::bus::bus& bus, const std::string& service,
+                      const std::string& path, const std::string& interface,
+                      const std::string& property)
+{
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        (std::string("Reading ") + service + " " + path + " " + interface +
+         " " + property)
+            .c_str());
+    auto msg = bus.new_method_call(service.c_str(), path.c_str(),
+                                   "org.freedesktop.DBus.Properties", "Get");
+
+    msg.append(interface.c_str(), property.c_str());
+    auto reply = bus.call(msg);
+
+    std::variant<Property> v;
+    reply.read(v);
+    return std::get<Property>(v);
+}
+
+NetworkID getNetworkId(sdbusplus::bus::bus& bus, const std::string& serviceName)
+{
+    return readPropertyValue<NetworkID>(
+        bus, serviceName, "/xyz/openbmc_project/mctp",
+        "xyz.openbmc_project.MCTP.Base", "NetworkID");
+}
 
 int onPropertiesChanged(sd_bus_message* rawMsg, void* userData,
                         sd_bus_error* retError)
@@ -67,7 +94,8 @@ int onPropertiesChanged(sd_bus_message* rawMsg, void* userData,
     return 1;
 }
 
-static eid_t getEIdFromPath(const sdbusplus::message::object_path& object_path)
+static EndpointID
+    getEIdFromPath(const sdbusplus::message::object_path& object_path)
 {
     try
     {
@@ -77,7 +105,7 @@ static eid_t getEIdFromPath(const sdbusplus::message::object_path& object_path)
             throw std::runtime_error("Invalid device path");
         }
         auto strDeviceId = object_path.str.substr(slashLoc + 1);
-        return static_cast<eid_t>(std::stoi(strDeviceId));
+        return static_cast<EndpointID>(std::stoi(strDeviceId));
     }
     catch (const std::exception& e)
     {
@@ -117,7 +145,9 @@ int onInterfacesAdded(sd_bus_message* rawMsg, void* userData,
             values.find("xyz.openbmc_project.MCTP.SupportedMessageTypes");
         if (values.end() != itSupportedMsgTypes)
         {
-            event.eid = getEIdFromPath(object_path);
+            event.id =
+                DeviceID(getEIdFromPath(object_path),
+                         getNetworkId(*context->connection, serviceName));
             const auto& properties = itSupportedMsgTypes->second;
             const auto& pldmSupport =
                 properties.at(mctpw::MCTPImpl::msgTypeToPropertyName.at(
@@ -169,8 +199,11 @@ int onInterfacesRemoved(sd_bus_message* rawMsg, void* userData,
             interfaces.end())
         {
             event.type = mctpw::Event::EventType::deviceRemoved;
-            event.eid = getEIdFromPath(object_path);
-            if (context->eraseDevice(event.eid) == 1)
+            event.id = DeviceID(
+                getEIdFromPath(object_path),
+                getNetworkId(*context->connection, message.get_sender()));
+
+            if (context->eraseDevice(event.id) == 1)
             {
                 boost::asio::spawn([context, userData,
                                     event](boost::asio::yield_context yield) {
@@ -243,7 +276,9 @@ int onMessageReceivedSignal(sd_bus_message* rawMsg, void* userData,
                 return -1;
             }
         }
-        context->receiveCallback(context, srcEid, tagOwner, msgTag, payload, 0);
+        DeviceID eid(srcEid,
+                     getNetworkId(*context->connection, message.get_sender()));
+        context->receiveCallback(context, eid, tagOwner, msgTag, payload, 0);
         return 1;
     }
     catch (std::exception& e)

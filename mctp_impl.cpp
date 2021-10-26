@@ -33,7 +33,7 @@ using MctpPropertiesVariantType =
                  uint8_t, std::vector<uint8_t>>;
 
 template <typename Property>
-static auto
+static Property
     readPropertyValue(sdbusplus::bus::bus& bus, const std::string& service,
                       const std::string& path, const std::string& interface,
                       const std::string& property)
@@ -90,14 +90,14 @@ void MCTPImpl::detectMctpEndpointsAsync(StatusCallback&& registerCB)
                        });
 }
 
-void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
+void MCTPImpl::triggerMCTPDeviceDiscovery(const DeviceID dstEId)
 {
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
             "triggerMCTPDeviceDiscovery: EID not found in end point map",
-            phosphor::logging::entry("EID=%d", dstEId));
+            phosphor::logging::entry("EID=%d", dstEId.id));
         return;
     }
 
@@ -359,7 +359,7 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
     boost::asio::yield_context yield,
     std::vector<std::pair<unsigned, std::string>>& buses)
 {
-    std::unordered_map<uint8_t, std::pair<unsigned, std::string>> eids;
+    std::unordered_map<DeviceID, std::pair<unsigned, std::string>> eids;
     for (auto& bus : buses)
     {
         boost::system::error_code ec;
@@ -382,6 +382,10 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
                     .c_str());
             continue;
         }
+
+        NetworkID nwid = readPropertyValue<NetworkID>(
+            *connection, bus.second, "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "NetworkID");
 
         for (const auto& [objectPath, interfaces] : values)
         {
@@ -465,9 +469,9 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
                 if (splitted.size())
                 {
                     /* take the last element and convert it to eid */
-                    uint8_t eid = static_cast<eid_t>(
+                    uint8_t eid = static_cast<uint8_t>(
                         std::stoi(splitted[splitted.size() - 1]));
-                    eids[eid] = bus;
+                    eids[DeviceID(eid, nwid)] = bus;
                 }
             }
             catch (std::exception& e)
@@ -479,7 +483,7 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
     return eids;
 }
 
-void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
+void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID dstEId,
                                 const ByteArray& request,
                                 std::chrono::milliseconds timeout)
 {
@@ -489,7 +493,7 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
             "SendReceiveAsync: Eid not found in end point map",
-            phosphor::logging::entry("EID=%d", dstEId));
+            phosphor::logging::entry("EID=%d", dstEId.id));
         boost::system::error_code ec =
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         if (callback)
@@ -502,12 +506,12 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
     connection->async_method_call(
         callback, it->second.second, "/xyz/openbmc_project/mctp",
         "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload",
-        dstEId, request, static_cast<uint16_t>(timeout.count()));
+        dstEId.mctpEid(), request, static_cast<uint16_t>(timeout.count()));
 }
 
 std::pair<boost::system::error_code, ByteArray>
-    MCTPImpl::sendReceiveYield(boost::asio::yield_context yield, eid_t dstEId,
-                               const ByteArray& request,
+    MCTPImpl::sendReceiveYield(boost::asio::yield_context yield,
+                               DeviceID dstEId, const ByteArray& request,
                                std::chrono::milliseconds timeout)
 {
     auto receiveResult = std::make_pair(
@@ -518,7 +522,7 @@ std::pair<boost::system::error_code, ByteArray>
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
             "SendReceiveYield: Eid not found in end point map",
-            phosphor::logging::entry("EID=%d", dstEId));
+            phosphor::logging::entry("EID=%d", dstEId.id));
         receiveResult.first =
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult;
@@ -526,13 +530,13 @@ std::pair<boost::system::error_code, ByteArray>
     receiveResult.second = connection->yield_method_call<ByteArray>(
         yield, receiveResult.first, it->second.second,
         "/xyz/openbmc_project/mctp", "xyz.openbmc_project.MCTP.Base",
-        "SendReceiveMctpMessagePayload", dstEId, request,
+        "SendReceiveMctpMessagePayload", dstEId.mctpEid(), request,
         static_cast<uint16_t>(timeout.count()));
 
     return receiveResult;
 }
 
-void MCTPImpl::sendAsync(const SendCallback& callback, const eid_t dstEId,
+void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID dstEId,
                          const uint8_t msgTag, const bool tagOwner,
                          const ByteArray& request)
 {
@@ -543,7 +547,7 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const eid_t dstEId,
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         phosphor::logging::log<phosphor::logging::level::ERR>(
             "sendAsync: Eid not found in end point map",
-            phosphor::logging::entry("EID=%d", dstEId));
+            phosphor::logging::entry("EID=%d", dstEId.id));
         if (callback)
         {
             callback(ec, -1);
@@ -553,21 +557,21 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const eid_t dstEId,
 
     connection->async_method_call(
         callback, it->second.second, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload", dstEId,
-        msgTag, tagOwner, request);
+        "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload",
+        dstEId.mctpEid(), msgTag, tagOwner, request);
 }
 
 std::pair<boost::system::error_code, int>
-    MCTPImpl::sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
-                        const uint8_t msgTag, const bool tagOwner,
-                        const ByteArray& request)
+    MCTPImpl::sendYield(boost::asio::yield_context& yield,
+                        const DeviceID dstEId, const uint8_t msgTag,
+                        const bool tagOwner, const ByteArray& request)
 {
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
             "sendYield: Eid not found in end point map",
-            phosphor::logging::entry("EID=%d", dstEId));
+            phosphor::logging::entry("EID=%d", dstEId.mctpEid()));
         return std::make_pair(
             boost::system::errc::make_error_code(boost::system::errc::io_error),
             -1);
@@ -577,8 +581,8 @@ std::pair<boost::system::error_code, int>
         boost::system::errc::make_error_code(boost::system::errc::success);
     int status = connection->yield_method_call<int>(
         yield, ec, it->second.second, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload", dstEId,
-        msgTag, tagOwner, request);
+        "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload",
+        dstEId.mctpEid(), msgTag, tagOwner, request);
 
     return std::make_pair(ec, status);
 }
@@ -593,7 +597,7 @@ void MCTPImpl::addToEidMap(boost::asio::yield_context yield,
     this->endpointMap.insert(eidMap.begin(), eidMap.end());
 }
 
-size_t MCTPImpl::eraseDevice(eid_t eid)
+size_t MCTPImpl::eraseDevice(DeviceID eid)
 {
     return endpointMap.erase(eid);
 }
