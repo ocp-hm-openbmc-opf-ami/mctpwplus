@@ -306,8 +306,8 @@ class MCTPWrapper
      * @param timeout reserve bandwidth timeout
      * @return dbus send method call return value
      */
-    int reserveBandwidth(boost::asio::yield_context yield, const eid_t dstEId,
-                         const uint16_t timeout);
+    int reserveBandwidth(boost::asio::yield_context yield,
+                         const DeviceID dstEId, const uint16_t timeout);
 
     /**
      * @brief Release bandwidth for EID
@@ -316,7 +316,8 @@ class MCTPWrapper
      * @param dstEId Destination MCTP Endpoint ID
      * @return dbus send method call return value
      */
-    int releaseBandwidth(boost::asio::yield_context yield, const eid_t dstEId);
+    int releaseBandwidth(boost::asio::yield_context yield,
+                         const DeviceID dstEId);
 
     /**
      * @brief Send request to dstEId and receive response asynchronously in
