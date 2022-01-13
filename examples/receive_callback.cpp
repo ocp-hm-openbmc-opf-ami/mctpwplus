@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 
     MCTPConfiguration config(MessageType::pldm, BindingType::mctpOverSmBus);
 
-    auto onMCTPReceive = [](void*, DeviceID eidReceived, bool, uint8_t,
+    auto onMCTPReceive = [](void*, eid_t eidReceived, bool, uint8_t,
                             const std::vector<uint8_t>& data, int status) {
         std::cout << "onMCTPReceive EID " << static_cast<int>(eidReceived)
                   << '\n';

@@ -62,7 +62,7 @@ static NetworkID getNetworkId(sdbusplus::bus::bus& bus,
             bus, serviceName, "/xyz/openbmc_project/mctp",
             "xyz.openbmc_project.MCTP.Base", "NetworkID");
     }
-    catch (...)
+    catch (const std::exception&)
     {
         phosphor::logging::log<phosphor::logging::level::WARNING>(
             ("NetworkId property not found in " + serviceName +
