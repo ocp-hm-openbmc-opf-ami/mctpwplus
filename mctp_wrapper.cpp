@@ -102,6 +102,13 @@ void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, DeviceID dstEId,
     pimpl->sendReceiveAsync(callback, dstEId, request, timeout);
 }
 
+void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
+                                   const ByteArray& request,
+                                   std::chrono::milliseconds timeout)
+{
+    sendReceiveAsync(callback, DeviceID(dstEId, 0), request, timeout);
+}
+
 std::pair<boost::system::error_code, ByteArray>
     MCTPWrapper::sendReceiveYield(boost::asio::yield_context yield,
                                   DeviceID dstEId, const ByteArray& request,
@@ -113,11 +120,25 @@ std::pair<boost::system::error_code, ByteArray>
     return receiveResult;
 }
 
+std::pair<boost::system::error_code, ByteArray>
+    MCTPWrapper::sendReceiveYield(boost::asio::yield_context yield,
+                                  eid_t dstEId, const ByteArray& request,
+                                  std::chrono::milliseconds timeout)
+{
+    return sendReceiveYield(yield, DeviceID(dstEId, 0), request, timeout);
+}
+
 void MCTPWrapper::sendAsync(const SendCallback& callback, const DeviceID dstEId,
                             const uint8_t msgTag, const bool tagOwner,
                             const ByteArray& request)
 {
     pimpl->sendAsync(callback, dstEId, msgTag, tagOwner, request);
+}
+void MCTPWrapper::sendAsync(const SendCallback& callback, const eid_t dstEId,
+                            const uint8_t msgTag, const bool tagOwner,
+                            const ByteArray& request)
+{
+    sendAsync(callback, DeviceID(dstEId, 0), msgTag, tagOwner, request);
 }
 
 std::pair<boost::system::error_code, int>
@@ -127,8 +148,26 @@ std::pair<boost::system::error_code, int>
 {
     return pimpl->sendYield(yield, dstEId, msgTag, tagOwner, request);
 }
+std::pair<boost::system::error_code, int>
+    MCTPWrapper::sendYield(boost::asio::yield_context& yield,
+                           const eid_t dstEId, const uint8_t msgTag,
+                           const bool tagOwner, const ByteArray& request)
+{
+    return sendYield(yield, DeviceID(dstEId, 0), msgTag, tagOwner, request);
+}
 
 const MCTPWrapper::EndpointMap& MCTPWrapper::getEndpointMap()
+{
+    auto& extendedMap = pimpl->getEndpointMap();
+    static EndpointMap localEidMap;
+    for (auto [deviceId, service] : extendedMap)
+    {
+        localEidMap.emplace(deviceId.mctpEid(), service);
+    }
+    return localEidMap;
+}
+
+const MCTPWrapper::EndpointMapExtended& MCTPWrapper::getEndpointMapExtended()
 {
     return pimpl->getEndpointMap();
 }
@@ -137,15 +176,29 @@ void MCTPWrapper::triggerMCTPDeviceDiscovery(const DeviceID dstEId)
 {
     pimpl->triggerMCTPDeviceDiscovery(dstEId);
 }
+void MCTPWrapper::triggerMCTPDeviceDiscovery(const eid_t dstEId)
+{
+    triggerMCTPDeviceDiscovery(DeviceID(dstEId, 0));
+}
 
 int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
                                   const DeviceID dstEId, const uint16_t timeout)
 {
     return pimpl->reserveBandwidth(yield, dstEId, timeout);
 }
+int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
+                                  const eid_t dstEId, const uint16_t timeout)
+{
+    return reserveBandwidth(yield, DeviceID(dstEId, 0), timeout);
+}
 
 int MCTPWrapper::releaseBandwidth(boost::asio::yield_context yield,
                                   const DeviceID dstEId)
 {
     return pimpl->releaseBandwidth(yield, dstEId);
+}
+int MCTPWrapper::releaseBandwidth(boost::asio::yield_context yield,
+                                  const eid_t dstEId)
+{
+    return releaseBandwidth(yield, DeviceID(dstEId, 0));
 }

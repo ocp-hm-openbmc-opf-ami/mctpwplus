@@ -52,11 +52,24 @@ static auto
     return std::get<Property>(v);
 }
 
-NetworkID getNetworkId(sdbusplus::bus::bus& bus, const std::string& serviceName)
+static NetworkID getNetworkId(sdbusplus::bus::bus& bus,
+                              const std::string& serviceName)
 {
-    return readPropertyValue<NetworkID>(
-        bus, serviceName, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "NetworkID");
+    try
+    {
+
+        return readPropertyValue<NetworkID>(
+            bus, serviceName, "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "NetworkID");
+    }
+    catch (...)
+    {
+        phosphor::logging::log<phosphor::logging::level::WARNING>(
+            ("NetworkId property not found in " + serviceName +
+             ". Assuming EIDs wont overlap")
+                .c_str());
+    }
+    return 0;
 }
 
 int onPropertiesChanged(sd_bus_message* rawMsg, void* userData,
@@ -94,7 +107,7 @@ int onPropertiesChanged(sd_bus_message* rawMsg, void* userData,
     return 1;
 }
 
-static EndpointID
+static LocalEId
     getEIdFromPath(const sdbusplus::message::object_path& object_path)
 {
     try
@@ -105,7 +118,7 @@ static EndpointID
             throw std::runtime_error("Invalid device path");
         }
         auto strDeviceId = object_path.str.substr(slashLoc + 1);
-        return static_cast<EndpointID>(std::stoi(strDeviceId));
+        return static_cast<LocalEId>(std::stoi(strDeviceId));
     }
     catch (const std::exception& e)
     {
@@ -145,9 +158,10 @@ int onInterfacesAdded(sd_bus_message* rawMsg, void* userData,
             values.find("xyz.openbmc_project.MCTP.SupportedMessageTypes");
         if (values.end() != itSupportedMsgTypes)
         {
-            event.id =
+            event.deviceId =
                 DeviceID(getEIdFromPath(object_path),
                          getNetworkId(*context->connection, serviceName));
+            event.eid = getEIdFromPath(object_path);
             const auto& properties = itSupportedMsgTypes->second;
             const auto& pldmSupport =
                 properties.at(mctpw::MCTPImpl::msgTypeToPropertyName.at(
@@ -199,11 +213,12 @@ int onInterfacesRemoved(sd_bus_message* rawMsg, void* userData,
             interfaces.end())
         {
             event.type = mctpw::Event::EventType::deviceRemoved;
-            event.id = DeviceID(
+            event.deviceId = DeviceID(
                 getEIdFromPath(object_path),
                 getNetworkId(*context->connection, message.get_sender()));
+            event.eid = getEIdFromPath(object_path);
 
-            if (context->eraseDevice(event.id) == 1)
+            if (context->eraseDevice(event.deviceId) == 1)
             {
                 boost::asio::spawn([context, userData,
                                     event](boost::asio::yield_context yield) {
@@ -278,7 +293,7 @@ int onMessageReceivedSignal(sd_bus_message* rawMsg, void* userData,
         }
         DeviceID eid(srcEid,
                      getNetworkId(*context->connection, message.get_sender()));
-        context->receiveCallback(context, eid, tagOwner, msgTag, payload, 0);
+        context->receiveCallback(context, srcEid, tagOwner, msgTag, payload, 0);
         return 1;
     }
     catch (std::exception& e)

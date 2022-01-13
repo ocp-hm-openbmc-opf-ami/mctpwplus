@@ -30,12 +30,14 @@ class MCTPImpl;
 /// MCTP Endpoint Id
 
 using NetworkID = uint32_t;
-using EndpointID = uint8_t;
+using LocalEId = uint8_t;
+
+using eid_t = uint8_t;
 
 struct DeviceID
 {
     DeviceID() = default;
-    constexpr DeviceID(EndpointID eidVal, NetworkID nwid) :
+    constexpr DeviceID(LocalEId eidVal, NetworkID nwid) :
         id((nwid << 8) | eidVal)
     {
     }
@@ -202,13 +204,14 @@ struct Event
         deviceRemoved,
     };
     EventType type;
-    DeviceID id;
+    eid_t eid;
+    DeviceID deviceId;
 };
 
 using ReconfigurationCallback =
     std::function<void(void*, const Event&, boost::asio::yield_context& yield)>;
 using ReceiveMessageCallback =
-    std::function<void(void*, DeviceID, bool, uint8_t, const ByteArray&, int)>;
+    std::function<void(void*, eid_t, bool, uint8_t, const ByteArray&, int)>;
 
 /**
  * @brief Wrapper class to access MCTP functionalities
@@ -221,6 +224,8 @@ class MCTPWrapper
         std::function<void(boost::system::error_code, void*)>;
     /* Endpoint map entry: DeviceID,pair(bus,service) */
     using EndpointMap =
+        std::unordered_map<eid_t, std::pair<unsigned, std::string>>;
+    using EndpointMapExtended =
         std::unordered_map<DeviceID, std::pair<unsigned, std::string>>;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
@@ -290,6 +295,7 @@ class MCTPWrapper
      * @return const EndpointMap&
      */
     const EndpointMap& getEndpointMap();
+    const EndpointMapExtended& getEndpointMapExtended();
 
     /**
      * @brief Trigger MCTP device discovery
@@ -297,6 +303,7 @@ class MCTPWrapper
      *
      */
     void triggerMCTPDeviceDiscovery(const DeviceID dstEId);
+    void triggerMCTPDeviceDiscovery(const eid_t dstEId);
 
     /**
      * @brief Reserve bandwidth for EID
@@ -308,6 +315,8 @@ class MCTPWrapper
      */
     int reserveBandwidth(boost::asio::yield_context yield,
                          const DeviceID dstEId, const uint16_t timeout);
+    int reserveBandwidth(boost::asio::yield_context yield, const eid_t dstEId,
+                         const uint16_t timeout);
 
     /**
      * @brief Release bandwidth for EID
@@ -318,6 +327,7 @@ class MCTPWrapper
      */
     int releaseBandwidth(boost::asio::yield_context yield,
                          const DeviceID dstEId);
+    int releaseBandwidth(boost::asio::yield_context yield, const eid_t dstEId);
 
     /**
      * @brief Send request to dstEId and receive response asynchronously in
@@ -329,6 +339,9 @@ class MCTPWrapper
      * @param timeout MCTP receive timeout
      */
     void sendReceiveAsync(ReceiveCallback receiveCb, DeviceID dstEId,
+                          const ByteArray& request,
+                          std::chrono::milliseconds timeout);
+    void sendReceiveAsync(ReceiveCallback receiveCb, eid_t dstEId,
                           const ByteArray& request,
                           std::chrono::milliseconds timeout);
 
@@ -346,6 +359,10 @@ class MCTPWrapper
         sendReceiveYield(boost::asio::yield_context yield, DeviceID dstEId,
                          const ByteArray& request,
                          std::chrono::milliseconds timeout);
+    std::pair<boost::system::error_code, ByteArray>
+        sendReceiveYield(boost::asio::yield_context yield, eid_t dstEId,
+                         const ByteArray& request,
+                         std::chrono::milliseconds timeout);
     /**
      * @brief Send MCTP request to dstEId and receive status of send operation
      * in callback
@@ -359,6 +376,9 @@ class MCTPWrapper
      * @param request MCTP request byte array
      */
     void sendAsync(const SendCallback& callback, const DeviceID dstEId,
+                   const uint8_t msgTag, const bool tagOwner,
+                   const ByteArray& request);
+    void sendAsync(const SendCallback& callback, const eid_t dstEId,
                    const uint8_t msgTag, const bool tagOwner,
                    const ByteArray& request);
     /**
@@ -375,6 +395,10 @@ class MCTPWrapper
      */
     std::pair<boost::system::error_code, int>
         sendYield(boost::asio::yield_context& yield, const DeviceID dstEId,
+                  const uint8_t msgTag, const bool tagOwner,
+                  const ByteArray& request);
+    std::pair<boost::system::error_code, int>
+        sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
                   const uint8_t msgTag, const bool tagOwner,
                   const ByteArray& request);
     /// MCTP Configuration to store message type and vendor defined properties

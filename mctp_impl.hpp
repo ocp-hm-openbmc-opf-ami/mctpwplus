@@ -78,15 +78,10 @@ class MCTPImpl
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
     /* Endpoint map entry: DeviceID,pair(bus,service) */
-    using EndpointMap =
-        std::unordered_map<DeviceID, std::pair<unsigned, std::string>>;
+    using EndpointMapExtended = MCTPWrapper::EndpointMapExtended;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
-    using ReconfigurationCallback = std::function<void(
-        void*, const Event&, boost::asio::yield_context& yield)>;
-    using ReceiveMessageCallback = std::function<void(
-        void*, DeviceID, bool, uint8_t, const ByteArray&, int)>;
     std::shared_ptr<sdbusplus::asio::connection> connection;
     mctpw::MCTPConfiguration config{};
     /// Callback to be executed when a network change occurs
@@ -125,9 +120,9 @@ class MCTPImpl
     /**
      * @brief Get a reference to internaly maintained EndpointMap
      *
-     * @return const EndpointMap&
+     * @return const EndpointMapExtended&
      */
-    inline const EndpointMap& getEndpointMap() const
+    inline const EndpointMapExtended& getEndpointMap() const
     {
         return this->endpointMap;
     }
@@ -230,12 +225,12 @@ class MCTPImpl
     std::unordered_map<std::string,
                        std::unique_ptr<sdbusplus::bus::match::match>>
         monitorServiceMatchers;
-    EndpointMap endpointMap;
+    EndpointMapExtended endpointMap;
     // Get list of pair<bus, service_name_string> which expose mctp object
     std::optional<std::vector<std::pair<unsigned, std::string>>>
         findBusByBindingType(boost::asio::yield_context yield);
     /* Return format: map<Eid, pair<bus, service_name_string>> */
-    EndpointMap buildMatchingEndpointMap(
+    EndpointMapExtended buildMatchingEndpointMap(
         boost::asio::yield_context yield,
         std::vector<std::pair<unsigned, std::string>>& buses);
     // Get bus id from servicename. Example: Returns 2 if device path is

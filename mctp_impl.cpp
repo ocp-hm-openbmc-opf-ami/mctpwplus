@@ -353,10 +353,30 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
     }
 }
 
+static NetworkID getNetworkId(sdbusplus::bus::bus& bus,
+                              const std::string& serviceName)
+{
+    try
+    {
+
+        return readPropertyValue<NetworkID>(
+            bus, serviceName, "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "NetworkID");
+    }
+    catch (...)
+    {
+        phosphor::logging::log<phosphor::logging::level::WARNING>(
+            ("NetworkId property not found in " + serviceName +
+             ". Assuming EIDs wont overlap")
+                .c_str());
+    }
+    return 0;
+}
+
 /* Return format:
  * map<Eid, pair<bus, service_name_string>>
  */
-MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
+MCTPImpl::EndpointMapExtended MCTPImpl::buildMatchingEndpointMap(
     boost::asio::yield_context yield,
     std::vector<std::pair<unsigned, std::string>>& buses)
 {
@@ -384,9 +404,7 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
             continue;
         }
 
-        NetworkID nwid = readPropertyValue<NetworkID>(
-            *connection, bus.second, "/xyz/openbmc_project/mctp",
-            "xyz.openbmc_project.MCTP.Base", "NetworkID");
+        NetworkID nwid = getNetworkId(*connection, bus.second);
 
         for (const auto& [objectPath, interfaces] : values)
         {
