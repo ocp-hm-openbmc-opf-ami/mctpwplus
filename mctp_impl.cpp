@@ -95,7 +95,7 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "triggerMCTPDeviceDiscovery: EID not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         return;
@@ -487,7 +487,7 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "SendReceiveAsync: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         boost::system::error_code ec =
@@ -516,7 +516,7 @@ std::pair<boost::system::error_code, ByteArray>
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "SendReceiveYield: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         receiveResult.first =
@@ -542,7 +542,7 @@ std::pair<boost::system::error_code, ByteArray>
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "SendReceiveBlocked: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         receiveResult.first =
@@ -561,7 +561,7 @@ std::pair<boost::system::error_code, ByteArray>
     auto reply = connection->call(msg);
     if (reply.is_method_error())
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "SendReceiveBlocked: Error in method call ",
             phosphor::logging::entry("EID=%d", dstEId));
         receiveResult.first =
@@ -582,7 +582,7 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const eid_t dstEId,
     {
         boost::system::error_code ec =
             boost::system::errc::make_error_code(boost::system::errc::io_error);
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "sendAsync: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         if (callback)
@@ -606,7 +606,7 @@ std::pair<boost::system::error_code, int>
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "sendYield: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         return std::make_pair(
