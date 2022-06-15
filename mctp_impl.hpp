@@ -27,6 +27,7 @@
 #include <sdbusplus/bus/match.hpp>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace mctpw
@@ -200,6 +201,23 @@ class MCTPImpl
     std::pair<boost::system::error_code, ByteArray>
         sendReceiveBlocked(eid_t dstEId, const ByteArray& request,
                            std::chrono::milliseconds timeout);
+
+    /**
+     * @brief Register a responder application with MCTP layer
+     * @param version The version supported by the responder. Use if only one
+     * version is supported
+     * @return boost error code
+     */
+    boost::system::error_code registerResponder(const VersionFields& version);
+    /**
+     * @brief Register a responder application with MCTP layer
+     * @param versions List of versions supported by the responder. Use if
+     * multiple versions are supported
+     * @return boost error code
+     */
+    boost::system::error_code
+        registerResponder(const std::vector<VersionFields>& versions);
+
     /**
      * @brief Send MCTP request to dstEId and receive status of send operation
      * in callback
@@ -246,6 +264,8 @@ class MCTPImpl
                        std::unique_ptr<sdbusplus::bus::match::match>>
         monitorServiceMatchers;
     EndpointMap endpointMap;
+    std::unordered_set<std::string> matchedBuses;
+    std::vector<VersionFields> responderVersions;
     // Get list of pair<bus, service_name_string> which expose mctp object
     std::optional<std::vector<std::pair<unsigned, std::string>>>
         findBusByBindingType(boost::asio::yield_context yield);
@@ -260,6 +280,7 @@ class MCTPImpl
     void listenForRemovedMctpServices();
     void registerListeners(const std::string& serviceName);
     void unRegisterListeners(const std::string& serviceName);
+    boost::system::error_code registerResponder(const std::string& serviceName);
     friend struct internal::NewServiceCallback;
     friend struct internal::DeleteServiceCallback;
 };

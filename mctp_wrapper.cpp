@@ -107,10 +107,7 @@ std::pair<boost::system::error_code, ByteArray>
                                   eid_t dstEId, const ByteArray& request,
                                   std::chrono::milliseconds timeout)
 {
-    auto receiveResult =
-        pimpl->sendReceiveYield(yield, dstEId, request, timeout);
-
-    return receiveResult;
+    return pimpl->sendReceiveYield(yield, dstEId, request, timeout);
 }
 
 std::pair<boost::system::error_code, ByteArray>
@@ -118,6 +115,17 @@ std::pair<boost::system::error_code, ByteArray>
                                     std::chrono::milliseconds timeout)
 {
     return pimpl->sendReceiveBlocked(dstEId, request, timeout);
+}
+
+boost::system::error_code MCTPWrapper::registerResponder(VersionFields version)
+{
+    return pimpl->registerResponder(version);
+}
+
+boost::system::error_code
+    MCTPWrapper::registerResponder(const std::vector<VersionFields>& versions)
+{
+    return pimpl->registerResponder(versions);
 }
 
 void MCTPWrapper::sendAsync(const SendCallback& callback, const eid_t dstEId,

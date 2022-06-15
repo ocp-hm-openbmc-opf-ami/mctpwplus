@@ -7,9 +7,7 @@ cxx = meson.get_compiler('cpp')
 fs = import('fs')
 # Build if not available
 build_dir = join_paths(meson.current_source_dir(), 'build')
-r = run_command('[','!','-d', build_dir, ']', check: true)
-if r.returncode() == 0
-
+if not fs.is_dir(build_dir)
       message('Boost libs not found. Downloading boost using wget')
       tar_download = run_command('wget', '-nc', '--no-check-certificate', 'https://boostorg.jfrog.io/artifactory/main/release/1.76.0/source/boost_1_76_0.tar.gz', check: true)
       message('Download complete. Extracting')

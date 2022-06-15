@@ -333,6 +333,7 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
             {
                 int bus = this->getBusId(service);
                 buses.emplace_back(bus, service);
+                matchedBuses.emplace(service);
             }
             catch (const std::exception& e)
             {
@@ -530,6 +531,105 @@ std::pair<boost::system::error_code, ByteArray>
         static_cast<uint16_t>(timeout.count()));
 
     return receiveResult;
+}
+
+boost::system::error_code
+    MCTPImpl::registerResponder(const VersionFields& version)
+{
+    std::vector<VersionFields> versions = {version};
+    return registerResponder(versions);
+}
+
+boost::system::error_code
+    MCTPImpl::registerResponder(const std::vector<VersionFields>& specVersion)
+{
+    responderVersions = specVersion;
+
+    auto status =
+        boost::system::errc::make_error_code(boost::system::errc::success);
+
+    for (auto mctpdServiceName : matchedBuses)
+    {
+        status = registerResponder(mctpdServiceName);
+        if (status != boost::system::errc::success)
+        {
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                ("Error setting responder version in " + mctpdServiceName)
+                    .c_str());
+            continue;
+        }
+    }
+
+    return status;
+}
+
+boost::system::error_code
+    MCTPImpl::registerResponder(const std::string& serviceName)
+{
+    if (responderVersions.empty())
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "Responder version not set");
+        return boost::system::errc::make_error_code(
+            boost::system::errc::io_error);
+    }
+    auto status =
+        boost::system::errc::make_error_code(boost::system::errc::success);
+
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        ("Registering responder version to service " + serviceName).c_str());
+
+    bool rc = true;
+    std::string registerMethod("RegisterResponder");
+
+    if (config.type == mctpw::MessageType::vdpci)
+    {
+        registerMethod.assign("RegisterVdpciResponder");
+    }
+
+    std::vector<uint8_t> version(
+        sizeof(VersionFields) * responderVersions.size(), 0);
+    std::copy_n(reinterpret_cast<uint8_t*>(responderVersions.data()),
+                sizeof(VersionFields) * responderVersions.size(),
+                version.begin());
+
+    auto msg = connection->new_method_call(
+        serviceName.c_str(), "/xyz/openbmc_project/mctp",
+        "xyz.openbmc_project.MCTP.Base", registerMethod.c_str());
+
+    msg.append(static_cast<uint8_t>(config.type));
+    msg.append(version);
+
+    try
+    {
+        auto reply = connection->call(msg);
+        if (reply.is_method_error())
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                "D-Bus error in registering the responder");
+
+            return boost::system::errc::make_error_code(
+                boost::system::errc::io_error);
+        }
+        reply.read(rc);
+        if (!rc)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                "Error in registering the responder");
+
+            return boost::system::errc::make_error_code(
+                boost::system::errc::io_error);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            "Unable to register responder. Error");
+        return boost::system::errc::make_error_code(
+            boost::system::errc::io_error);
+    }
+
+    return status;
 }
 
 std::pair<boost::system::error_code, ByteArray>

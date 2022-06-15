@@ -244,7 +244,7 @@ int onMessageReceivedSignal(sd_bus_message* rawMsg, void* userData,
                 ((vendorHdr->intelVendorMessageId &
                   context->config.vendorMessageType->mask) !=
                  (context->config.vendorMessageType->value &
-                 context->config.vendorMessageType->mask)))
+                  context->config.vendorMessageType->mask)))
             {
                 return -1;
             }

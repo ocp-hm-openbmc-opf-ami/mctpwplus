@@ -34,26 +34,27 @@ int main(int argc, char* argv[])
                              mctpw::BindingType::mctpOverSmBus);
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
-    boost::asio::spawn(io, [&mctpWrapper,
-                            eid](boost::asio::yield_context yield) {
-        mctpWrapper.detectMctpEndpoints(yield);
-        std::cout << "Before sendReceiveBlocked Method" << std::endl;
-        std::vector<uint8_t> request = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
-        auto rcvStatus = mctpWrapper.sendReceiveBlocked(eid, request, std::chrono::milliseconds(100));
-        if (rcvStatus.first)
-        {
-            std::cout << "Method " << rcvStatus.first.message() << '\n';
-        }
-        else
-        {
-            std::cout << "Blocked Response ";
-            for (int n : rcvStatus.second)
+    boost::asio::spawn(
+        io, [&mctpWrapper, eid](boost::asio::yield_context yield) {
+            mctpWrapper.detectMctpEndpoints(yield);
+            std::cout << "Before sendReceiveBlocked Method" << std::endl;
+            std::vector<uint8_t> request = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
+            auto rcvStatus = mctpWrapper.sendReceiveBlocked(
+                eid, request, std::chrono::milliseconds(100));
+            if (rcvStatus.first)
             {
-                std::cout << n << ' ';
+                std::cout << "Method " << rcvStatus.first.message() << '\n';
             }
-            std::cout << '\n';
-        }
-    });
+            else
+            {
+                std::cout << "Blocked Response ";
+                for (int n : rcvStatus.second)
+                {
+                    std::cout << n << ' ';
+                }
+                std::cout << '\n';
+            }
+        });
 
     io.run();
     return 0;
