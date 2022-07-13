@@ -163,18 +163,20 @@ int onInterfacesAdded(sd_bus_message* rawMsg, void* userData,
                          getNetworkId(*context->connection, serviceName));
             event.eid = getEIdFromPath(object_path);
             const auto& properties = itSupportedMsgTypes->second;
-            const auto& pldmSupport =
+            const auto& registeredMsgType =
                 properties.at(mctpw::MCTPImpl::msgTypeToPropertyName.at(
                     context->config.type));
-            if (std::get<bool>(pldmSupport))
+            if (std::get<bool>(registeredMsgType))
             {
                 event.type = mctpw::Event::EventType::deviceAdded;
-                boost::asio::spawn([context, object_path, serviceName, userData,
+                boost::asio::spawn(context->connection->get_io_context(),
+                                   [context, object_path, serviceName, userData,
                                     event](boost::asio::yield_context yield) {
-                    context->addToEidMap(yield, serviceName);
-                    context->networkChangeCallback(userData, event, yield);
-                    return 1;
-                });
+                                       context->addToEidMap(yield, serviceName);
+                                       context->networkChangeCallback(
+                                           userData, event, yield);
+                                       return 1;
+                                   });
             }
         }
     }
@@ -220,11 +222,13 @@ int onInterfacesRemoved(sd_bus_message* rawMsg, void* userData,
 
             if (context->eraseDevice(event.deviceId) == 1)
             {
-                boost::asio::spawn([context, userData,
+                boost::asio::spawn(context->connection->get_io_context(),
+                                   [context, userData,
                                     event](boost::asio::yield_context yield) {
-                    context->networkChangeCallback(userData, event, yield);
-                    return 1;
-                });
+                                       context->networkChangeCallback(
+                                           userData, event, yield);
+                                       return 1;
+                                   });
             }
             else
             {
@@ -275,8 +279,9 @@ int onMessageReceivedSignal(sd_bus_message* rawMsg, void* userData,
         {
             struct VendorHeader
             {
+                uint8_t vdpciMessageType;
                 uint16_t vendorId;
-                uint16_t vendorMessageId;
+                uint16_t intelVendorMessageId;
             } __attribute__((packed));
             VendorHeader* vendorHdr =
                 reinterpret_cast<VendorHeader*>(payload.data());
@@ -284,9 +289,10 @@ int onMessageReceivedSignal(sd_bus_message* rawMsg, void* userData,
             if (!context->config.vendorId ||
                 !context->config.vendorMessageType ||
                 (vendorHdr->vendorId != context->config.vendorId) ||
-                ((vendorHdr->vendorMessageId &
+                ((vendorHdr->intelVendorMessageId &
                   context->config.vendorMessageType->mask) !=
-                 context->config.vendorMessageType->mask))
+                 (context->config.vendorMessageType->value &
+                  context->config.vendorMessageType->mask)))
             {
                 return -1;
             }

@@ -27,6 +27,7 @@
 #include <sdbusplus/bus/match.hpp>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace mctpw
@@ -94,7 +95,7 @@ class MCTPImpl
                                  {MessageType::ncsi, "NCSI"},
                                  {MessageType::ethernet, "Ethernet"},
                                  {MessageType::nvmeMgmtMsg, "NVMeMgmtMsg"},
-                                 {MessageType::spdm, "SPDM "},
+                                 {MessageType::spdm, "SPDM"},
                                  {MessageType::securedMsg, "SECUREDMSG"},
                                  {MessageType::vdpci, "VDPCI"},
                                  {MessageType::vdiana, "VDIANA"}};
@@ -182,6 +183,36 @@ class MCTPImpl
                          const ByteArray& request,
                          std::chrono::milliseconds timeout);
     /**
+     * @brief Send request to dstEId and receive response using blocked
+     * calls     *
+     * @param yield Boost yield_context to use on dbus call
+     * @param dstEId Destination MCTP Endpoint ID
+     * @param request MCTP request byte array
+     * @param timeout MCTP receive timeout
+     * @return std::pair<boost::system::error_code, ByteArray> Pair of boost
+     * error code and response byte array
+     */
+    std::pair<boost::system::error_code, ByteArray>
+        sendReceiveBlocked(eid_t dstEId, const ByteArray& request,
+                           std::chrono::milliseconds timeout);
+
+    /**
+     * @brief Register a responder application with MCTP layer
+     * @param version The version supported by the responder. Use if only one
+     * version is supported
+     * @return boost error code
+     */
+    boost::system::error_code registerResponder(const VersionFields& version);
+    /**
+     * @brief Register a responder application with MCTP layer
+     * @param versions List of versions supported by the responder. Use if
+     * multiple versions are supported
+     * @return boost error code
+     */
+    boost::system::error_code
+        registerResponder(const std::vector<VersionFields>& versions);
+
+    /**
      * @brief Send MCTP request to dstEId and receive status of send operation
      * in callback
      *
@@ -217,6 +248,7 @@ class MCTPImpl
                      const std::string& serviceName/*, uint16_t vid,
                      uint16_t vmsgType*/);
     size_t eraseDevice(DeviceID eid);
+    std::optional<std::string> getDeviceLocation(const eid_t eid);
 
   private:
     std::unordered_map<
@@ -226,6 +258,8 @@ class MCTPImpl
                        std::unique_ptr<sdbusplus::bus::match::match>>
         monitorServiceMatchers;
     EndpointMapExtended endpointMap;
+    std::unordered_set<std::string> matchedBuses;
+    std::vector<VersionFields> responderVersions;
     // Get list of pair<bus, service_name_string> which expose mctp object
     std::optional<std::vector<std::pair<unsigned, std::string>>>
         findBusByBindingType(boost::asio::yield_context yield);
@@ -240,6 +274,7 @@ class MCTPImpl
     void listenForRemovedMctpServices();
     void registerListeners(const std::string& serviceName);
     void unRegisterListeners(const std::string& serviceName);
+    boost::system::error_code registerResponder(const std::string& serviceName);
     friend struct internal::NewServiceCallback;
     friend struct internal::DeleteServiceCallback;
 };

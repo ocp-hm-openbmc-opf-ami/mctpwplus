@@ -73,6 +73,14 @@ namespace mctpw
 {
 using ByteArray = std::vector<uint8_t>;
 
+struct VersionFields
+{
+    uint8_t major;
+    uint8_t minor;
+    uint8_t update;
+    uint8_t alpha;
+} __attribute__((__packed__));
+
 /**
  * @brief MCTP Binding Type
  *
@@ -363,6 +371,19 @@ class MCTPWrapper
         sendReceiveYield(boost::asio::yield_context yield, eid_t dstEId,
                          const ByteArray& request,
                          std::chrono::milliseconds timeout);
+
+    /**
+     * @brief Send request to dstEId and receive response using
+     * a blocked call
+     * @param dstEId Destination MCTP Endpoint ID
+     * @param request MCTP request byte array
+     * @param timeout MCTP receive timeout
+     * @return std::pair<boost::system::error_code, ByteArray> Pair of boost
+     * error code and response byte array
+     */
+    std::pair<boost::system::error_code, ByteArray>
+        sendReceiveBlocked(eid_t dstEId, const ByteArray& request,
+                           std::chrono::milliseconds timeout);
     /**
      * @brief Send MCTP request to dstEId and receive status of send operation
      * in callback
@@ -401,6 +422,34 @@ class MCTPWrapper
         sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
                   const uint8_t msgTag, const bool tagOwner,
                   const ByteArray& request);
+
+    /**
+     * @brief Register a responder application with MCTP layer
+     * @param version The version supported by the responder. Use if only one
+     * version is supported
+     * @return boost error code
+     */
+    boost::system::error_code registerResponder(VersionFields version);
+    /**
+     * @brief Register a responder application with MCTP layer
+     * @param versions List of versions supported by the responder. Use if
+     * multiple versions are supported
+     * @return boost error code
+     */
+    boost::system::error_code
+        registerResponder(const std::vector<VersionFields>& versions);
+
+    /**
+     * @brief Get human-readable device location string by EID
+     *
+     * When device location string is not available or it is an empty string,
+     * will return std::nullopt.
+     *
+     * @param eid MCTP Endpoint ID of the device to query
+     * @return std::optional<std::string> Optional device location string
+     */
+    std::optional<std::string> getDeviceLocation(const eid_t eid);
+
     /// MCTP Configuration to store message type and vendor defined properties
     MCTPConfiguration config{};
 
@@ -409,7 +458,7 @@ class MCTPWrapper
                                  {MessageType::ncsi, "NCSI"},
                                  {MessageType::ethernet, "Ethernet"},
                                  {MessageType::nvmeMgmtMsg, "NVMeMgmtMsg"},
-                                 {MessageType::spdm, "SPDM "},
+                                 {MessageType::spdm, "SPDM"},
                                  {MessageType::securedMsg, "SECUREDMSG"},
                                  {MessageType::vdpci, "VDPCI"},
                                  {MessageType::vdiana, "VDIANA"}};

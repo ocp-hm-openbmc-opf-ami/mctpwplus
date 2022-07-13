@@ -95,7 +95,7 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const DeviceID dstEId)
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "triggerMCTPDeviceDiscovery: EID not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId.id));
         return;
@@ -334,6 +334,7 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
             {
                 int bus = this->getBusId(service);
                 buses.emplace_back(bus, service);
+                matchedBuses.emplace(service);
             }
             catch (const std::exception& e)
             {
@@ -510,7 +511,7 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID dstEId,
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "SendReceiveAsync: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId.id));
         boost::system::error_code ec =
@@ -539,7 +540,7 @@ std::pair<boost::system::error_code, ByteArray>
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "SendReceiveYield: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId.id));
         receiveResult.first =
@@ -555,6 +556,146 @@ std::pair<boost::system::error_code, ByteArray>
     return receiveResult;
 }
 
+boost::system::error_code
+    MCTPImpl::registerResponder(const VersionFields& version)
+{
+    std::vector<VersionFields> versions = {version};
+    return registerResponder(versions);
+}
+
+boost::system::error_code
+    MCTPImpl::registerResponder(const std::vector<VersionFields>& specVersion)
+{
+    responderVersions = specVersion;
+
+    auto status =
+        boost::system::errc::make_error_code(boost::system::errc::success);
+
+    for (auto mctpdServiceName : matchedBuses)
+    {
+        status = registerResponder(mctpdServiceName);
+        if (status != boost::system::errc::success)
+        {
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                ("Error setting responder version in " + mctpdServiceName)
+                    .c_str());
+            continue;
+        }
+    }
+
+    return status;
+}
+
+boost::system::error_code
+    MCTPImpl::registerResponder(const std::string& serviceName)
+{
+    if (responderVersions.empty())
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "Responder version not set");
+        return boost::system::errc::make_error_code(
+            boost::system::errc::io_error);
+    }
+    auto status =
+        boost::system::errc::make_error_code(boost::system::errc::success);
+
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        ("Registering responder version to service " + serviceName).c_str());
+
+    bool rc = true;
+    std::string registerMethod("RegisterResponder");
+
+    if (config.type == mctpw::MessageType::vdpci)
+    {
+        registerMethod.assign("RegisterVdpciResponder");
+    }
+
+    std::vector<uint8_t> version(
+        sizeof(VersionFields) * responderVersions.size(), 0);
+    std::copy_n(reinterpret_cast<uint8_t*>(responderVersions.data()),
+                sizeof(VersionFields) * responderVersions.size(),
+                version.begin());
+
+    auto msg = connection->new_method_call(
+        serviceName.c_str(), "/xyz/openbmc_project/mctp",
+        "xyz.openbmc_project.MCTP.Base", registerMethod.c_str());
+
+    msg.append(static_cast<uint8_t>(config.type));
+    msg.append(version);
+
+    try
+    {
+        auto reply = connection->call(msg);
+        if (reply.is_method_error())
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                "D-Bus error in registering the responder");
+
+            return boost::system::errc::make_error_code(
+                boost::system::errc::io_error);
+        }
+        reply.read(rc);
+        if (!rc)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                "Error in registering the responder");
+
+            return boost::system::errc::make_error_code(
+                boost::system::errc::io_error);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            "Unable to register responder. Error");
+        return boost::system::errc::make_error_code(
+            boost::system::errc::io_error);
+    }
+
+    return status;
+}
+
+std::pair<boost::system::error_code, ByteArray>
+    MCTPImpl::sendReceiveBlocked(eid_t dstEId, const ByteArray& request,
+                                 std::chrono::milliseconds timeout)
+{
+    auto receiveResult = std::make_pair(
+        boost::system::errc::make_error_code(boost::system::errc::success),
+        ByteArray());
+    auto it = this->endpointMap.find(dstEId);
+    if (this->endpointMap.end() == it)
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "SendReceiveBlocked: Eid not found in end point map",
+            phosphor::logging::entry("EID=%d", dstEId));
+        receiveResult.first =
+            boost::system::errc::make_error_code(boost::system::errc::io_error);
+        return receiveResult;
+    }
+
+    auto msg = connection->new_method_call(
+        it->second.second.c_str(), "/xyz/openbmc_project/mctp",
+        "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload");
+
+    msg.append(dstEId);
+    msg.append(request);
+    msg.append(static_cast<uint16_t>(timeout.count()));
+
+    auto reply = connection->call(msg);
+    if (reply.is_method_error())
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "SendReceiveBlocked: Error in method call ",
+            phosphor::logging::entry("EID=%d", dstEId));
+        receiveResult.first =
+            boost::system::errc::make_error_code(boost::system::errc::io_error);
+        return receiveResult;
+    }
+    reply.read(receiveResult.second);
+
+    return receiveResult;
+}
+
 void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID dstEId,
                          const uint8_t msgTag, const bool tagOwner,
                          const ByteArray& request)
@@ -564,7 +705,7 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID dstEId,
     {
         boost::system::error_code ec =
             boost::system::errc::make_error_code(boost::system::errc::io_error);
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "sendAsync: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId.id));
         if (callback)
@@ -588,7 +729,7 @@ std::pair<boost::system::error_code, int>
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "sendYield: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId.mctpEid()));
         return std::make_pair(
@@ -619,6 +760,37 @@ void MCTPImpl::addToEidMap(boost::asio::yield_context yield,
 size_t MCTPImpl::eraseDevice(DeviceID eid)
 {
     return endpointMap.erase(eid);
+}
+
+std::optional<std::string> MCTPImpl::getDeviceLocation(const eid_t eid)
+{
+    auto it = this->endpointMap.find(eid);
+    if (it == this->endpointMap.end())
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            "getDeviceLocation: Eid not found in end point map",
+            phosphor::logging::entry("EID=%d", eid));
+        return std::nullopt;
+    }
+
+    try
+    {
+        auto locationCode = readPropertyValue<std::string>(
+            static_cast<sdbusplus::bus::bus&>(*connection), it->second.second,
+            "/xyz/openbmc_project/mctp/device/" + std::to_string(eid),
+            "xyz.openbmc_project.Inventory.Decorator.LocationCode",
+            "LocationCode");
+        return locationCode.empty() ? std::nullopt
+                                    : std::make_optional(locationCode);
+    }
+    catch (const std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            ("Error in getting Physical.Location property from " +
+             it->second.second + ". " + e.what())
+                .c_str());
+        return std::nullopt;
+    }
 }
 
 void MCTPImpl::listenForNewMctpServices()

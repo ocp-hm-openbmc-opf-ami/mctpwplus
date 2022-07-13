@@ -114,10 +114,25 @@ std::pair<boost::system::error_code, ByteArray>
                                   DeviceID dstEId, const ByteArray& request,
                                   std::chrono::milliseconds timeout)
 {
-    auto receiveResult =
-        pimpl->sendReceiveYield(yield, dstEId, request, timeout);
+    return pimpl->sendReceiveYield(yield, dstEId, request, timeout);
+}
 
-    return receiveResult;
+std::pair<boost::system::error_code, ByteArray>
+    MCTPWrapper::sendReceiveBlocked(eid_t dstEId, const ByteArray& request,
+                                    std::chrono::milliseconds timeout)
+{
+    return pimpl->sendReceiveBlocked(dstEId, request, timeout);
+}
+
+boost::system::error_code MCTPWrapper::registerResponder(VersionFields version)
+{
+    return pimpl->registerResponder(version);
+}
+
+boost::system::error_code
+    MCTPWrapper::registerResponder(const std::vector<VersionFields>& versions)
+{
+    return pimpl->registerResponder(versions);
 }
 
 std::pair<boost::system::error_code, ByteArray>
@@ -201,4 +216,9 @@ int MCTPWrapper::releaseBandwidth(boost::asio::yield_context yield,
                                   const eid_t dstEId)
 {
     return releaseBandwidth(yield, DeviceID(dstEId, 0));
+}
+
+std::optional<std::string> MCTPWrapper::getDeviceLocation(const eid_t eid)
+{
+    return pimpl->getDeviceLocation(eid);
 }

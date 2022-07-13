@@ -53,6 +53,8 @@ void NewServiceCallback::operator()(sdbusplus::message::message& msg)
     phosphor::logging::log<phosphor::logging::level::INFO>(
         (std::string("New service ") + msg.get_sender()).c_str());
     parent.registerListeners(msg.get_sender());
+    parent.matchedBuses.emplace(msg.get_sender());
+    parent.registerResponder(msg.get_sender());
 }
 
 DeleteServiceCallback::DeleteServiceCallback(MCTPImpl& mctpImpl) :
@@ -66,4 +68,5 @@ void DeleteServiceCallback::operator()(sdbusplus::message::message& msg)
         (std::string("Deleting device ") + msg.get_sender()).c_str());
 
     parent.unRegisterListeners(msg.get_sender());
+    parent.matchedBuses.erase(msg.get_sender());
 }
