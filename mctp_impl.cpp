@@ -662,7 +662,8 @@ std::pair<boost::system::error_code, ByteArray>
     auto receiveResult = std::make_pair(
         boost::system::errc::make_error_code(boost::system::errc::success),
         ByteArray());
-    auto it = this->endpointMap.find(dstEId);
+    auto eeid = DeviceID(dstEId, 0);
+    auto it = this->endpointMap.find(eeid);
     if (this->endpointMap.end() == it)
     {
         phosphor::logging::log<phosphor::logging::level::DEBUG>(
@@ -764,7 +765,8 @@ size_t MCTPImpl::eraseDevice(DeviceID eid)
 
 std::optional<std::string> MCTPImpl::getDeviceLocation(const eid_t eid)
 {
-    auto it = this->endpointMap.find(eid);
+    auto eeid = DeviceID(eid, 0);
+    auto it = this->endpointMap.find(eeid);
     if (it == this->endpointMap.end())
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
