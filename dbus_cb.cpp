@@ -52,6 +52,7 @@ static auto
     return std::get<Property>(v);
 }
 
+// TODO: Create utils module and move common functions to that
 static NetworkID getNetworkId(sdbusplus::bus::bus& bus,
                               const std::string& serviceName)
 {
@@ -107,7 +108,7 @@ int onPropertiesChanged(sd_bus_message* rawMsg, void* userData,
     return 1;
 }
 
-static LocalEId
+static LocalEID
     getEIdFromPath(const sdbusplus::message::object_path& object_path)
 {
     try
@@ -118,7 +119,7 @@ static LocalEId
             throw std::runtime_error("Invalid device path");
         }
         auto strDeviceId = object_path.str.substr(slashLoc + 1);
-        return static_cast<LocalEId>(std::stoi(strDeviceId));
+        return static_cast<LocalEID>(std::stoi(strDeviceId));
     }
     catch (const std::exception& e)
     {
@@ -297,8 +298,8 @@ int onMessageReceivedSignal(sd_bus_message* rawMsg, void* userData,
                 return -1;
             }
         }
-        DeviceID eid(srcEid,
-                     getNetworkId(*context->connection, message.get_sender()));
+        DeviceID eeid(srcEid,
+                      getNetworkId(*context->connection, message.get_sender()));
         context->receiveCallback(context, srcEid, tagOwner, msgTag, payload, 0);
         return 1;
     }

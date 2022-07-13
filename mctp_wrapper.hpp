@@ -29,15 +29,15 @@ namespace mctpw
 class MCTPImpl;
 /// MCTP Endpoint Id
 
-using NetworkID = uint32_t;
-using LocalEId = uint8_t;
+using NetworkID = uint16_t;
+using LocalEID = uint8_t;
 
 using eid_t = uint8_t;
 
 struct DeviceID
 {
     DeviceID() = default;
-    constexpr DeviceID(LocalEId eidVal, NetworkID nwid) :
+    constexpr DeviceID(LocalEID eidVal, NetworkID nwid) :
         id((nwid << 8) | eidVal)
     {
     }
@@ -230,9 +230,10 @@ class MCTPWrapper
   public:
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
-    /* Endpoint map entry: DeviceID,pair(bus,service) */
+    /* Endpoint map entry: LocalEID, pair(bus,service) */
     using EndpointMap =
         std::unordered_map<eid_t, std::pair<unsigned, std::string>>;
+    /* Endpoint map entry: DeviceID, pair(bus,service) */
     using EndpointMapExtended =
         std::unordered_map<DeviceID, std::pair<unsigned, std::string>>;
     using ReceiveCallback =
@@ -310,7 +311,7 @@ class MCTPWrapper
      * @param dstEId Destination MCTP Endpoint ID
      *
      */
-    void triggerMCTPDeviceDiscovery(const DeviceID dstEId);
+    void triggerMCTPDeviceDiscovery(const DeviceID eeid);
     void triggerMCTPDeviceDiscovery(const eid_t dstEId);
 
     /**
@@ -321,8 +322,8 @@ class MCTPWrapper
      * @param timeout reserve bandwidth timeout
      * @return dbus send method call return value
      */
-    int reserveBandwidth(boost::asio::yield_context yield,
-                         const DeviceID dstEId, const uint16_t timeout);
+    int reserveBandwidth(boost::asio::yield_context yield, const DeviceID eeid,
+                         const uint16_t timeout);
     int reserveBandwidth(boost::asio::yield_context yield, const eid_t dstEId,
                          const uint16_t timeout);
 
@@ -333,8 +334,7 @@ class MCTPWrapper
      * @param dstEId Destination MCTP Endpoint ID
      * @return dbus send method call return value
      */
-    int releaseBandwidth(boost::asio::yield_context yield,
-                         const DeviceID dstEId);
+    int releaseBandwidth(boost::asio::yield_context yield, const DeviceID eeid);
     int releaseBandwidth(boost::asio::yield_context yield, const eid_t dstEId);
 
     /**
@@ -346,7 +346,7 @@ class MCTPWrapper
      * @param request MCTP request byte array
      * @param timeout MCTP receive timeout
      */
-    void sendReceiveAsync(ReceiveCallback receiveCb, DeviceID dstEId,
+    void sendReceiveAsync(ReceiveCallback receiveCb, DeviceID eeid,
                           const ByteArray& request,
                           std::chrono::milliseconds timeout);
     void sendReceiveAsync(ReceiveCallback receiveCb, eid_t dstEId,
@@ -364,7 +364,7 @@ class MCTPWrapper
      * error code and response byte array
      */
     std::pair<boost::system::error_code, ByteArray>
-        sendReceiveYield(boost::asio::yield_context yield, DeviceID dstEId,
+        sendReceiveYield(boost::asio::yield_context yield, DeviceID eeid,
                          const ByteArray& request,
                          std::chrono::milliseconds timeout);
     std::pair<boost::system::error_code, ByteArray>
@@ -396,7 +396,7 @@ class MCTPWrapper
      * was originated by the endpoint that is the source of the message
      * @param request MCTP request byte array
      */
-    void sendAsync(const SendCallback& callback, const DeviceID dstEId,
+    void sendAsync(const SendCallback& callback, const DeviceID eeid,
                    const uint8_t msgTag, const bool tagOwner,
                    const ByteArray& request);
     void sendAsync(const SendCallback& callback, const eid_t dstEId,
@@ -415,7 +415,7 @@ class MCTPWrapper
      * error_code and dbus send method call return value
      */
     std::pair<boost::system::error_code, int>
-        sendYield(boost::asio::yield_context& yield, const DeviceID dstEId,
+        sendYield(boost::asio::yield_context& yield, const DeviceID eeid,
                   const uint8_t msgTag, const bool tagOwner,
                   const ByteArray& request);
     std::pair<boost::system::error_code, int>

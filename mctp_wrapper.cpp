@@ -95,11 +95,11 @@ boost::system::error_code
     return ec;
 }
 
-void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, DeviceID dstEId,
+void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, DeviceID eeid,
                                    const ByteArray& request,
                                    std::chrono::milliseconds timeout)
 {
-    pimpl->sendReceiveAsync(callback, dstEId, request, timeout);
+    pimpl->sendReceiveAsync(callback, eeid, request, timeout);
 }
 
 void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
@@ -111,10 +111,10 @@ void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
 
 std::pair<boost::system::error_code, ByteArray>
     MCTPWrapper::sendReceiveYield(boost::asio::yield_context yield,
-                                  DeviceID dstEId, const ByteArray& request,
+                                  DeviceID eeid, const ByteArray& request,
                                   std::chrono::milliseconds timeout)
 {
-    return pimpl->sendReceiveYield(yield, dstEId, request, timeout);
+    return pimpl->sendReceiveYield(yield, eeid, request, timeout);
 }
 
 std::pair<boost::system::error_code, ByteArray>
@@ -143,11 +143,11 @@ std::pair<boost::system::error_code, ByteArray>
     return sendReceiveYield(yield, DeviceID(dstEId, 0), request, timeout);
 }
 
-void MCTPWrapper::sendAsync(const SendCallback& callback, const DeviceID dstEId,
+void MCTPWrapper::sendAsync(const SendCallback& callback, const DeviceID eeid,
                             const uint8_t msgTag, const bool tagOwner,
                             const ByteArray& request)
 {
-    pimpl->sendAsync(callback, dstEId, msgTag, tagOwner, request);
+    pimpl->sendAsync(callback, eeid, msgTag, tagOwner, request);
 }
 void MCTPWrapper::sendAsync(const SendCallback& callback, const eid_t dstEId,
                             const uint8_t msgTag, const bool tagOwner,
@@ -158,10 +158,10 @@ void MCTPWrapper::sendAsync(const SendCallback& callback, const eid_t dstEId,
 
 std::pair<boost::system::error_code, int>
     MCTPWrapper::sendYield(boost::asio::yield_context& yield,
-                           const DeviceID dstEId, const uint8_t msgTag,
+                           const DeviceID eeid, const uint8_t msgTag,
                            const bool tagOwner, const ByteArray& request)
 {
-    return pimpl->sendYield(yield, dstEId, msgTag, tagOwner, request);
+    return pimpl->sendYield(yield, eeid, msgTag, tagOwner, request);
 }
 std::pair<boost::system::error_code, int>
     MCTPWrapper::sendYield(boost::asio::yield_context& yield,
@@ -187,9 +187,9 @@ const MCTPWrapper::EndpointMapExtended& MCTPWrapper::getEndpointMapExtended()
     return pimpl->getEndpointMap();
 }
 
-void MCTPWrapper::triggerMCTPDeviceDiscovery(const DeviceID dstEId)
+void MCTPWrapper::triggerMCTPDeviceDiscovery(const DeviceID eeid)
 {
-    pimpl->triggerMCTPDeviceDiscovery(dstEId);
+    pimpl->triggerMCTPDeviceDiscovery(eeid);
 }
 void MCTPWrapper::triggerMCTPDeviceDiscovery(const eid_t dstEId)
 {
@@ -197,9 +197,9 @@ void MCTPWrapper::triggerMCTPDeviceDiscovery(const eid_t dstEId)
 }
 
 int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
-                                  const DeviceID dstEId, const uint16_t timeout)
+                                  const DeviceID eeid, const uint16_t timeout)
 {
-    return pimpl->reserveBandwidth(yield, dstEId, timeout);
+    return pimpl->reserveBandwidth(yield, eeid, timeout);
 }
 int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
                                   const eid_t dstEId, const uint16_t timeout)
@@ -208,9 +208,9 @@ int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
 }
 
 int MCTPWrapper::releaseBandwidth(boost::asio::yield_context yield,
-                                  const DeviceID dstEId)
+                                  const DeviceID eeid)
 {
-    return pimpl->releaseBandwidth(yield, dstEId);
+    return pimpl->releaseBandwidth(yield, eeid);
 }
 int MCTPWrapper::releaseBandwidth(boost::asio::yield_context yield,
                                   const eid_t dstEId)

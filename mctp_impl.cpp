@@ -32,6 +32,8 @@ using MctpPropertiesVariantType =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
                  uint8_t, std::vector<uint8_t>>;
 
+// Note: This is a blocking method call. Implement your own yield variants
+// if nonblocking method is needed
 template <typename Property>
 static Property
     readPropertyValue(sdbusplus::bus::bus& bus, const std::string& service,
@@ -367,7 +369,7 @@ static NetworkID getNetworkId(sdbusplus::bus::bus& bus,
     catch (const std::exception&)
     {
         phosphor::logging::log<phosphor::logging::level::WARNING>(
-            ("NetworkId property not found in " + serviceName +
+            ("NetworkID property not found in " + serviceName +
              ". Assuming EIDs wont overlap")
                 .c_str());
     }
@@ -732,7 +734,7 @@ std::pair<boost::system::error_code, int>
     {
         phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "sendYield: Eid not found in end point map",
-            phosphor::logging::entry("EID=%d", dstEId.mctpEid()));
+            phosphor::logging::entry("EID=%d", dstEId.id));
         return std::make_pair(
             boost::system::errc::make_error_code(boost::system::errc::io_error),
             -1);
@@ -771,7 +773,7 @@ std::optional<std::string> MCTPImpl::getDeviceLocation(const eid_t eid)
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
             "getDeviceLocation: Eid not found in end point map",
-            phosphor::logging::entry("EID=%d", eid));
+            phosphor::logging::entry("EID=%d", eeid.id));
         return std::nullopt;
     }
 
