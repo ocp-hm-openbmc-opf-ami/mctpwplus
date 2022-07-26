@@ -543,6 +543,11 @@ boost::system::error_code
 boost::system::error_code
     MCTPImpl::registerResponder(const std::vector<VersionFields>& specVersion)
 {
+    if (specVersion.empty())
+    {
+        return boost::system::errc::make_error_code(
+            boost::system::errc::io_error);
+    }
     responderVersions = specVersion;
 
     auto status =
@@ -597,8 +602,18 @@ boost::system::error_code
         serviceName.c_str(), "/xyz/openbmc_project/mctp",
         "xyz.openbmc_project.MCTP.Base", registerMethod.c_str());
 
-    msg.append(static_cast<uint8_t>(config.type));
-    msg.append(version);
+    if (config.type == mctpw::MessageType::vdpci)
+    {
+        uint16_t cmdSetType = config.vendorMessageType->cmdSetType();
+        msg.append(*config.vendorId);
+        msg.append(cmdSetType);
+        msg.append(version);
+    }
+    else
+    {
+        msg.append(static_cast<uint8_t>(config.type));
+        msg.append(version);
+    }
 
     try
     {

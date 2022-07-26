@@ -127,6 +127,11 @@ struct MCTPConfiguration
         {
         }
 
+        constexpr uint16_t cmdSetType() const
+        {
+            return value & mask;
+        }
+
         /// Vendor defined message type
         uint16_t value;
         /// Vendor defined message mask
