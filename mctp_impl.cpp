@@ -81,7 +81,8 @@ namespace mctpw
 void MCTPImpl::detectMctpEndpointsAsync(StatusCallback&& registerCB)
 {
     boost::asio::spawn(connection->get_io_context(),
-                       [&, this](boost::asio::yield_context yield) {
+                       [registerCB = std::move(registerCB),
+                        this](boost::asio::yield_context yield) {
                            auto ec = detectMctpEndpoints(yield);
                            if (registerCB)
                            {
@@ -251,9 +252,12 @@ boost::system::error_code
 
 int MCTPImpl::getBusId(const std::string& serviceName)
 {
+    // TODO - the bus ID parameter is unused in the library, this can be cleaned
+    // up
     try
     {
         int bus = -1;
+        static int i3cBusId = 0;
         if (config.bindingType == mctpw::BindingType::mctpOverSmBus)
         {
             std::string pv = readPropertyValue<std::string>(
@@ -285,6 +289,10 @@ int MCTPImpl::getBusId(const std::string& serviceName)
                 "/xyz/openbmc_project/mctp",
                 mctpw::MCTPWrapper::bindingToInterface.at(config.bindingType),
                 "BDF");
+        }
+        else if (config.bindingType == mctpw::BindingType::mctpOverI3C)
+        {
+            bus = i3cBusId++;
         }
         else
         {
