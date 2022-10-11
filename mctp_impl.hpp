@@ -16,7 +16,7 @@
 #pragma once
 
 #include "mctp_wrapper.hpp"
-
+#include "mctp.h"
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
 #include <chrono>
@@ -28,6 +28,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <err.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 namespace mctpw
 {
@@ -249,5 +253,6 @@ class MCTPImpl
     void unRegisterListeners(const std::string& serviceName);
     friend struct internal::NewServiceCallback;
     friend struct internal::DeleteServiceCallback;
+    struct sockaddr_mctp initializeMctp(eid_t dstEid);
 };
 } // namespace mctpw

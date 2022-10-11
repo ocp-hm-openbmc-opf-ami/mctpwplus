@@ -15,16 +15,58 @@
 */
 
 #include "mctp_impl.hpp"
-
 #include "dbus_cb.hpp"
 #include "service_monitor.hpp"
-
+#include <algorithm>
+#include <iostream>
 #include <boost/algorithm/string.hpp>
 #include <boost/container/flat_map.hpp>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <unordered_set>
+#include <stdint.h>
+
+int parse_hex_addr(const char* in, uint8_t *out, size_t *out_len)
+{
+    int rc = -1;
+    size_t out_pos = 0;
+    while (1) {
+        if (*in == '\0') {
+            rc = 0;
+            break;
+        }
+        else if (*in == ':') {
+            in++;
+            if (*in == ':' || *in == '\0' || out_pos == 0) {
+                // can't have repeated ':' or ':' at start or end.
+                break;
+            }
+        } else {
+            char* endp;
+            int tmp;
+            tmp = strtoul(in, &endp, 16);
+            if (endp == in || tmp > 0xff) {
+                break;
+            }
+            if (out_pos >= *out_len) {
+                break;
+            
+            }
+            *out = static_cast<unsigned>((tmp & 0xff));
+            out++;
+            out_pos++;
+            in = endp;
+        }
+    }
+
+    if (rc) {
+        *out_len = 0;
+    } else {
+        *out_len = out_pos;
+    }
+    return rc;
+}
 
 template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
@@ -301,6 +343,14 @@ int MCTPImpl::getBusId(const std::string& serviceName)
     }
 }
 
+
+std::optional<std::vector<std::pair<unsigned, std::string>>> mockDUTBuses(){
+
+    std::vector<std::pair<unsigned, std::string>> buses; 
+    buses.push_back(std::make_pair(8,"xyz.openbmc_project.MCTP_SMBus_PCIe_slot"));
+    return buses;
+}
+
 std::optional<std::vector<std::pair<unsigned, std::string>>>
     MCTPImpl::findBusByBindingType(boost::asio::yield_context yield)
 {
@@ -308,6 +358,9 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
     std::vector<std::pair<unsigned, std::string>> buses;
     DictType<std::string, std::vector<std::string>> services;
     std::vector<std::string> interfaces;
+    
+    return mockDUTBuses();
+
     try
     {
         interfaces.push_back(
@@ -352,6 +405,14 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
     }
 }
 
+
+MCTPImpl::EndpointMap mockDUTEidMap(){
+    
+    std::unordered_map<uint8_t, std::pair<unsigned, std::string>> eids;
+    eids[static_cast<unsigned>(9)] = std::make_pair(8,"xyz.openbmc_project.MCTP_SMBus_PCIe_slot");
+    return eids;
+}
+
 /* Return format:
  * map<Eid, pair<bus, service_name_string>>
  */
@@ -360,6 +421,9 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
     std::vector<std::pair<unsigned, std::string>>& buses)
 {
     std::unordered_map<uint8_t, std::pair<unsigned, std::string>> eids;
+    
+    return mockDUTEidMap();
+
     for (auto& bus : buses)
     {
         boost::system::error_code ec;
@@ -479,6 +543,17 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
     return eids;
 }
 
+struct sockaddr_mctp  MCTPImpl::initializeMctp(eid_t dstEid){
+    struct sockaddr_mctp addr;
+    addr.smctp_addr.s_addr = dstEid;
+    addr.smctp_family = AF_MCTP;
+    addr.smctp_type = 1;
+    addr.smctp_tag = MCTP_TAG_OWNER;
+
+    return addr;
+    
+}
+
 void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
                                 const ByteArray& request,
                                 std::chrono::milliseconds timeout)
@@ -498,11 +573,10 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
         }
         return;
     }
-
     connection->async_method_call(
-        callback, it->second.second, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload",
-        dstEId, request, static_cast<uint16_t>(timeout.count()));
+            callback, it->second.second, "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload",
+            dstEId, request, static_cast<uint16_t>(timeout.count()));
 }
 
 std::pair<boost::system::error_code, ByteArray>
@@ -522,7 +596,95 @@ std::pair<boost::system::error_code, ByteArray>
         receiveResult.first =
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult;
+
+    
     }
+ 
+    std::cout<<"Socketing to MCTP in "<<__func__<<"()"<<std::endl;
+    int sd = socket(AF_MCTP,SOCK_DGRAM,0);
+    int rc;
+    if(sd<0)
+        err(EXIT_FAILURE, "socket");
+
+    struct sockaddr_mctp_ext addr;
+    memset(&addr,0x0,sizeof(addr));
+    addr.smctp_base.smctp_family = AF_MCTP;
+    addr.smctp_base.smctp_network = 1;
+    addr.smctp_base.smctp_type = 1;
+    addr.smctp_base.smctp_addr.s_addr = 0x09;
+    addr.smctp_base.smctp_tag = MCTP_TAG_OWNER;
+
+    std::cout<<"Sending mctp request to net: "<<addr.smctp_base.smctp_network<<", eid: "<<static_cast<unsigned>(addr.smctp_base.smctp_addr.s_addr)<< ", type: "<<static_cast<unsigned>(addr.smctp_base.smctp_type)<<std::endl;
+    
+    /*
+    //extended addressing
+    addr.smctp_ifindex = 1;
+    uint8_t lladdr[MAX_ADDR_LEN];
+    size_t sz = sizeof(lladdr);
+    parse_hex_addr("0x58",lladdr,&sz);
+    memcpy(addr.smctp_haddr,lladdr,sz);
+    //addr.smctp_haddr = lladdr;
+    addr.smctp_halen = sizeof(addr.smctp_haddr);
+    int opt = 1;
+
+    rc = setsockopt(sd, SOL_MCTP, MCTP_OPT_ADDR_EXT, &opt, sizeof(opt));
+    if(rc<0){
+        errx(EXIT_FAILURE, "Kernel does not support extended addressing");
+    }
+    */
+
+    //sending
+    rc = sendto(sd,request.data(),sizeof(request),0,reinterpret_cast<struct sockaddr*> (&addr), sizeof(struct sockaddr_mctp_ext));
+    if(rc!=sizeof(request)){
+        err(EXIT_FAILURE, "sendto: (%zd)", sizeof(request));
+    }
+    std::cout<<"Send successful"<<std::endl; 
+    //receiving
+    struct sockaddr_mctp_ext recv_addr;
+    unsigned char* rxbuf;
+    socklen_t addrlen = sizeof(recv_addr);
+    rxbuf = static_cast<unsigned char*>(malloc(sizeof(recv_addr)));
+    size_t rcv_len = sizeof(recv_addr);
+    rc = recvfrom(sd,rxbuf,rcv_len,MSG_TRUNC,reinterpret_cast<struct sockaddr *>(&recv_addr), &addrlen);
+    if(rc<0)
+        err(EXIT_FAILURE, "recv from");
+    std::cout<<"Received message: "<<std::endl;
+    printf("0x%02x",rxbuf[0]);
+
+    
+    //uint8_t* data = const_cast<uint8_t*>(request.data());
+    //mctp(data);
+
+    //int j=0;
+    //char *buf;
+    //int k = request.size();
+    //buf = new char[k];
+    //for(auto i:request){
+    //    buf[j++]=i;
+    //    std::cout<<to_string(i)<<std::endl;
+    //}
+    //
+    //uint8_t t = -1;
+
+    //uint8_t *p;
+    //p = &t;
+    //uint8_t *a = const_cast<uint8_t*>(request.data());
+    //mctp_req(1,dstEId,1,p,-1,a,request.size());
+
+    //struct sockaddr_mctp addr = initializeMctp(dstEId);
+    //std::cout<<"STRUCT INITIALIZED: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;
+    //int sd = socket(AF_MCTP, SOCK_DGRAM,0);
+    //if(sd<0){
+    //    std::cout<<"ERROR in socket making"<<std::endl;
+    //}
+    //std::cout<<"Socket made~"<<std::endl;
+    //int rc = sendto(sd, buf, sizeof(buf) ,0,reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
+    //std::cout<<"send to return code: "<<rc<<std::endl;
+    //if(rc!=sizeof(buf)){
+    //    std::cout<<"sendto() failed"<<std::endl;
+   // }
+
+
     receiveResult.second = connection->yield_method_call<ByteArray>(
         yield, receiveResult.first, it->second.second,
         "/xyz/openbmc_project/mctp", "xyz.openbmc_project.MCTP.Base",
