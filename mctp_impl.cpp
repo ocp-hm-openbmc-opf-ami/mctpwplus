@@ -638,13 +638,16 @@ std::pair<boost::system::error_code, ByteArray>
     if(rc!=sizeof(request)){
         err(EXIT_FAILURE, "sendto: (%zd)", sizeof(request));
     }
-    std::cout<<"Send successful"<<std::endl; 
+    std::cout<<"Send successful"<<std::endl;
+
     //receiving
     struct sockaddr_mctp_ext recv_addr;
-    unsigned char* rxbuf;
+    recv_addr.smctp_base.smctp_family = AF_MCTP;
+    recv_addr.smctp_base.smctp_addr.s_addr = static_cast<unsigned>(9);
+    recv_addr.smctp_base.smctp_type = 1;
+    char rxbuf[4096];
     socklen_t addrlen = sizeof(recv_addr);
-    rxbuf = static_cast<unsigned char*>(malloc(sizeof(recv_addr)));
-    size_t rcv_len = sizeof(recv_addr);
+    size_t rcv_len = sizeof(rxbuf);
     rc = recvfrom(sd,rxbuf,rcv_len,MSG_TRUNC,reinterpret_cast<struct sockaddr *>(&recv_addr), &addrlen);
     if(rc<0)
         err(EXIT_FAILURE, "recv from");
