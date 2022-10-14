@@ -26,7 +26,7 @@
 #include <sdbusplus/bus/match.hpp>
 #include <unordered_set>
 #include <stdint.h>
-
+#include <string.h>
 int parse_hex_addr(const char* in, uint8_t *out, size_t *out_len)
 {
     int rc = -1;
@@ -595,9 +595,7 @@ std::pair<boost::system::error_code, ByteArray>
             phosphor::logging::entry("EID=%d", dstEId));
         receiveResult.first =
             boost::system::errc::make_error_code(boost::system::errc::io_error);
-        return receiveResult;
-
-    
+        return receiveResult; 
     }
  
     std::cout<<"Socketing to MCTP in "<<__func__<<"()"<<std::endl;
@@ -606,16 +604,19 @@ std::pair<boost::system::error_code, ByteArray>
     if(sd<0)
         err(EXIT_FAILURE, "socket");
 
-    struct sockaddr_mctp_ext addr;
+    struct sockaddr_mctp addr;
     memset(&addr,0x0,sizeof(addr));
-    addr.smctp_base.smctp_family = AF_MCTP;
-    addr.smctp_base.smctp_network = 1;
-    addr.smctp_base.smctp_type = 1;
-    addr.smctp_base.smctp_addr.s_addr = 0x09;
-    addr.smctp_base.smctp_tag = MCTP_TAG_OWNER;
+    addr.smctp_family = AF_MCTP;
+    addr.smctp_network = 1;
+    addr.smctp_type = 1;
+    addr.smctp_addr.s_addr = 0x09;
+    addr.smctp_tag = MCTP_TAG_OWNER;
 
-    std::cout<<"Sending mctp request to net: "<<addr.smctp_base.smctp_network<<", eid: "<<static_cast<unsigned>(addr.smctp_base.smctp_addr.s_addr)<< ", type: "<<static_cast<unsigned>(addr.smctp_base.smctp_type)<<std::endl;
-    
+    std::cout<<"Sending mctp request to net: "<<addr.smctp_network<<", eid: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<< ", type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
+    std::cout<<"Request bytes: "<<std::endl;
+    for(auto i : request){
+        std::cout<< static_cast<unsigned>(i)<<std::endl;
+    }
     /*
     //extended addressing
     addr.smctp_ifindex = 1;
@@ -633,67 +634,53 @@ std::pair<boost::system::error_code, ByteArray>
     }
     */
 
+    //Removing PLDM message type from header
+    auto p = request.data();
+    p++;
+
     //sending
-    rc = sendto(sd,request.data(),sizeof(request),0,reinterpret_cast<struct sockaddr*> (&addr), sizeof(struct sockaddr_mctp_ext));
-    if(rc!=sizeof(request)){
-        err(EXIT_FAILURE, "sendto: (%zd)", sizeof(request));
+    rc = sendto(sd,p,(request.size()-1),0,reinterpret_cast<struct sockaddr*> (&addr), sizeof(struct sockaddr_mctp));
+    if(rc!=static_cast<int>(request.size()-1)){
+        err(EXIT_FAILURE, "sendto: (%zd)",(request.size()-1)) ;
     }
     std::cout<<"Send successful"<<std::endl;
 
     //receiving
-    struct sockaddr_mctp_ext recv_addr;
-    recv_addr.smctp_base.smctp_family = AF_MCTP;
-    recv_addr.smctp_base.smctp_addr.s_addr = static_cast<unsigned>(9);
-    recv_addr.smctp_base.smctp_type = 1;
+    struct sockaddr_mctp recv_addr;
+    recv_addr.smctp_family = AF_MCTP;
+    recv_addr.smctp_addr.s_addr = MCTP_ADDR_ANY;
+    recv_addr.smctp_type = 1;
     char rxbuf[4096];
+    memset(rxbuf, '\0', sizeof(rxbuf));
     socklen_t addrlen = sizeof(recv_addr);
     size_t rcv_len = sizeof(rxbuf);
-    rc = recvfrom(sd,rxbuf,rcv_len,MSG_TRUNC,reinterpret_cast<struct sockaddr *>(&recv_addr), &addrlen);
-    if(rc<0)
+
+    rc = recvfrom(sd,rxbuf,rcv_len,0,reinterpret_cast<struct sockaddr *>(&recv_addr), &addrlen);
+    if(rc<=0)
         err(EXIT_FAILURE, "recv from");
+    std::cout<<"Receive code: "<<rc<<std::endl;
     std::cout<<"Received message: "<<std::endl;
-    printf("0x%02x",rxbuf[0]);
-
+    for(int i=0; i < rc;i++){
+        printf("0x%02x ",rxbuf[i]);
+    }
     
-    //uint8_t* data = const_cast<uint8_t*>(request.data());
-    //mctp(data);
+    //Mocking Header
+    receiveResult.second.push_back(0x01);
 
-    //int j=0;
-    //char *buf;
-    //int k = request.size();
-    //buf = new char[k];
-    //for(auto i:request){
-    //    buf[j++]=i;
-    //    std::cout<<to_string(i)<<std::endl;
-    //}
-    //
-    //uint8_t t = -1;
-
-    //uint8_t *p;
-    //p = &t;
-    //uint8_t *a = const_cast<uint8_t*>(request.data());
-    //mctp_req(1,dstEId,1,p,-1,a,request.size());
-
-    //struct sockaddr_mctp addr = initializeMctp(dstEId);
-    //std::cout<<"STRUCT INITIALIZED: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;
-    //int sd = socket(AF_MCTP, SOCK_DGRAM,0);
-    //if(sd<0){
-    //    std::cout<<"ERROR in socket making"<<std::endl;
-    //}
-    //std::cout<<"Socket made~"<<std::endl;
-    //int rc = sendto(sd, buf, sizeof(buf) ,0,reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
-    //std::cout<<"send to return code: "<<rc<<std::endl;
-    //if(rc!=sizeof(buf)){
-    //    std::cout<<"sendto() failed"<<std::endl;
-   // }
-
-
-    receiveResult.second = connection->yield_method_call<ByteArray>(
+    for(int i=0; i < rc;i++){
+        receiveResult.second.push_back(rxbuf[i]);
+    }
+    
+     connection->yield_method_call<ByteArray>(
         yield, receiveResult.first, it->second.second,
         "/xyz/openbmc_project/mctp", "xyz.openbmc_project.MCTP.Base",
         "SendReceiveMctpMessagePayload", dstEId, request,
         static_cast<uint16_t>(timeout.count()));
-
+    
+    receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
+    for(auto i: receiveResult.second){
+        printf("0x%02x ",i);
+    }
     return receiveResult;
 }
 
