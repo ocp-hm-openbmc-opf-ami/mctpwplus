@@ -27,6 +27,8 @@
 #include <unordered_set>
 #include <stdint.h>
 #include <string.h>
+#include "test_mctp_m2.cpp"
+
 int parse_hex_addr(const char* in, uint8_t *out, size_t *out_len)
 {
     int rc = -1;
@@ -158,6 +160,7 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
 int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId, const uint16_t timeout)
 {
+    return 1;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
@@ -193,6 +196,7 @@ int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
 int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId)
 {
+    return 1;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
@@ -215,9 +219,9 @@ int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
         return -1;
     }
     else if (status < 0)
-    {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
-            ("ReleaseBandwidth: failed for EID: " + std::to_string(dstEId) +
+  {
+      phosphor::logging::log<phosphor::logging::level::ERR>(
+          ("ReleaseBandwidth: failed for EID: " + std::to_string(dstEId) +
              " rc: " + std::to_string(status))
                 .c_str());
     }
@@ -580,9 +584,9 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
 }
 
 std::pair<boost::system::error_code, ByteArray>
-    MCTPImpl::sendReceiveYield(boost::asio::yield_context yield, eid_t dstEId,
+    MCTPImpl::sendReceiveYield(boost::asio::yield_context , eid_t dstEId,
                                const ByteArray& request,
-                               std::chrono::milliseconds timeout)
+                               std::chrono::milliseconds )
 {
     auto receiveResult = std::make_pair(
         boost::system::errc::make_error_code(boost::system::errc::success),
@@ -599,6 +603,7 @@ std::pair<boost::system::error_code, ByteArray>
     }
  
     std::cout<<"Socketing to MCTP in "<<__func__<<"()"<<std::endl;
+    test();
     int sd = socket(AF_MCTP,SOCK_DGRAM,0);
     int rc;
     if(sd<0)
@@ -615,8 +620,10 @@ std::pair<boost::system::error_code, ByteArray>
     std::cout<<"Sending mctp request to net: "<<addr.smctp_network<<", eid: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<< ", type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
     std::cout<<"Request bytes: "<<std::endl;
     for(auto i : request){
-        std::cout<< static_cast<unsigned>(i)<<std::endl;
+        std::cout<< std::hex<<"0x"<<static_cast<int>(i)<< " ";
     }
+    std::cout<<std::dec;
+    std::cout<<std::endl;
     /*
     //extended addressing
     addr.smctp_ifindex = 1;
@@ -651,7 +658,6 @@ std::pair<boost::system::error_code, ByteArray>
     recv_addr.smctp_addr.s_addr = MCTP_ADDR_ANY;
     recv_addr.smctp_type = 1;
     char rxbuf[4096];
-    memset(rxbuf, '\0', sizeof(rxbuf));
     socklen_t addrlen = sizeof(recv_addr);
     size_t rcv_len = sizeof(rxbuf);
 
@@ -660,9 +666,15 @@ std::pair<boost::system::error_code, ByteArray>
         err(EXIT_FAILURE, "recv from");
     std::cout<<"Receive code: "<<rc<<std::endl;
     std::cout<<"Received message: "<<std::endl;
-    for(int i=0; i < rc;i++){
-        printf("0x%02x ",rxbuf[i]);
+    
+    for(auto i: receiveResult.second){
+        printf("0x%02x ",i);
     }
+
+    void* ptr = nullptr;
+    boost::asio::post([this,ptr, receiveResult, recv_addr](){
+            this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr, true, recv_addr.smctp_tag,receiveResult.second, 1);
+            });
     
     //Mocking Header
     receiveResult.second.push_back(0x01);
@@ -670,17 +682,10 @@ std::pair<boost::system::error_code, ByteArray>
     for(int i=0; i < rc;i++){
         receiveResult.second.push_back(rxbuf[i]);
     }
-    
-     connection->yield_method_call<ByteArray>(
-        yield, receiveResult.first, it->second.second,
-        "/xyz/openbmc_project/mctp", "xyz.openbmc_project.MCTP.Base",
-        "SendReceiveMctpMessagePayload", dstEId, request,
-        static_cast<uint16_t>(timeout.count()));
-    
+     
+
     receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
-    for(auto i: receiveResult.second){
-        printf("0x%02x ",i);
-    }
+    
     return receiveResult;
 }
 
