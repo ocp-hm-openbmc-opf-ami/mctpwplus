@@ -32,7 +32,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdlib.h>
-
+#include "mctp_kernel_binding.h"
 namespace mctpw
 {
 /// MCTP Endpoint Id
@@ -96,10 +96,11 @@ class MCTPImpl
     std::shared_ptr<sdbusplus::asio::connection> connection;
     mctpw::MCTPConfiguration config{};
     /// Callback to be executed when a network change occurs
-    ReconfigurationCallback networkChangeCallback = nullptr;
-    /// Callback to be executed when a MCTP message received
-    ReceiveMessageCallback receiveCallback = nullptr;
 
+    /// Callback to be executed when a MCTP message received
+    ReconfigurationCallback networkChangeCallback = nullptr;
+    ReceiveMessageCallback receiveCallback = nullptr;
+    MCTPKernelBinding mctpk = MCTPKernelBinding(0x01,1);
     static const inline std::unordered_map<MessageType, const std::string>
         msgTypeToPropertyName = {{MessageType::pldm, "PLDM"},
                                  {MessageType::ncsi, "NCSI"},
@@ -228,7 +229,7 @@ class MCTPImpl
                      uint16_t vmsgType*/);
     size_t eraseDevice(eid_t eid);
     std::optional<std::string> getDeviceLocation(const eid_t eid);
-
+    
   private:
     std::unordered_map<
         std::string, std::vector<std::unique_ptr<sdbusplus::bus::match::match>>>

@@ -1,0 +1,357 @@
+diff --git a/mctp_impl.cpp b/mctp_impl.cpp
+index 10fdfcb..d4fb33b 100644
+--- a/mctp_impl.cpp
++++ b/mctp_impl.cpp
+@@ -27,7 +27,6 @@
+ #include <unordered_set>
+ #include <stdint.h>
+ #include <string.h>
+-#include "test_mctp_m2.cpp"
+ 
+ int parse_hex_addr(const char* in, uint8_t *out, size_t *out_len)
+ {
+@@ -547,16 +546,6 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
+     return eids;
+ }
+ 
+-struct sockaddr_mctp  MCTPImpl::initializeMctp(eid_t dstEid){
+-    struct sockaddr_mctp addr;
+-    addr.smctp_addr.s_addr = dstEid;
+-    addr.smctp_family = AF_MCTP;
+-    addr.smctp_type = 1;
+-    addr.smctp_tag = MCTP_TAG_OWNER;
+-
+-    return addr;
+-    
+-}
+ 
+ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
+                                 const ByteArray& request,
+@@ -601,91 +590,65 @@ std::pair<boost::system::error_code, ByteArray>
+             boost::system::errc::make_error_code(boost::system::errc::io_error);
+         return receiveResult; 
+     }
+- 
+-    std::cout<<"Socketing to MCTP in "<<__func__<<"()"<<std::endl;
+-    test();
+-    int sd = socket(AF_MCTP,SOCK_DGRAM,0);
+-    int rc;
+-    if(sd<0)
+-        err(EXIT_FAILURE, "socket");
+-
+-    struct sockaddr_mctp addr;
+-    memset(&addr,0x0,sizeof(addr));
+-    addr.smctp_family = AF_MCTP;
+-    addr.smctp_network = 1;
+-    addr.smctp_type = 1;
+-    addr.smctp_addr.s_addr = 0x09;
+-    addr.smctp_tag = MCTP_TAG_OWNER;
+-
+-    std::cout<<"Sending mctp request to net: "<<addr.smctp_network<<", eid: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<< ", type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
+-    std::cout<<"Request bytes: "<<std::endl;
+-    for(auto i : request){
+-        std::cout<< std::hex<<"0x"<<static_cast<int>(i)<< " ";
+-    }
+-    std::cout<<std::dec;
+-    std::cout<<std::endl;
+-    /*
+-    //extended addressing
+-    addr.smctp_ifindex = 1;
+-    uint8_t lladdr[MAX_ADDR_LEN];
+-    size_t sz = sizeof(lladdr);
+-    parse_hex_addr("0x58",lladdr,&sz);
+-    memcpy(addr.smctp_haddr,lladdr,sz);
+-    //addr.smctp_haddr = lladdr;
+-    addr.smctp_halen = sizeof(addr.smctp_haddr);
+-    int opt = 1;
+-
+-    rc = setsockopt(sd, SOL_MCTP, MCTP_OPT_ADDR_EXT, &opt, sizeof(opt));
+-    if(rc<0){
+-        errx(EXIT_FAILURE, "Kernel does not support extended addressing");
+-    }
+-    */
+-
+-    //Removing PLDM message type from header
+-    auto p = request.data();
+-    p++;
+-
+-    //sending
+-    rc = sendto(sd,p,(request.size()-1),0,reinterpret_cast<struct sockaddr*> (&addr), sizeof(struct sockaddr_mctp));
+-    if(rc!=static_cast<int>(request.size()-1)){
+-        err(EXIT_FAILURE, "sendto: (%zd)",(request.size()-1)) ;
+-    }
+-    std::cout<<"Send successful"<<std::endl;
+-
+-    //receiving
+-    struct sockaddr_mctp recv_addr;
+-    recv_addr.smctp_family = AF_MCTP;
+-    recv_addr.smctp_addr.s_addr = MCTP_ADDR_ANY;
+-    recv_addr.smctp_type = 1;
+-    char rxbuf[4096];
+-    socklen_t addrlen = sizeof(recv_addr);
+-    size_t rcv_len = sizeof(rxbuf);
+-
+-    rc = recvfrom(sd,rxbuf,rcv_len,0,reinterpret_cast<struct sockaddr *>(&recv_addr), &addrlen);
+-    if(rc<=0)
+-        err(EXIT_FAILURE, "recv from");
+-    std::cout<<"Receive code: "<<rc<<std::endl;
+-    std::cout<<"Received message: "<<std::endl;
+-    
+-    for(auto i: receiveResult.second){
+-        printf("0x%02x ",i);
++     
++    char rxbuf[1024];
++    int rc = mctpk.sendReceiveMessage(0x09, request,rxbuf, 1024);
++    printf("Received %d bytes\n",rc);
++    for(int i=0;i<rc;i++){
++        printf("0x%02x ",rxbuf[i]);
+     }
+-
+-    void* ptr = nullptr;
+-    boost::asio::post([this,ptr, receiveResult, recv_addr](){
+-            this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr, true, recv_addr.smctp_tag,receiveResult.second, 1);
+-            });
+-    
++    printf("\n");
++
++    //if(rxbuf[1]==0x02 && rxbuf[2]==0x11 && rxbuf[3]==0x00 && rxbuf[4]==0x05 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x01 && rc==14){
++    //    std::cout<<"Last request of errorr reached"<<std::endl;
++    //    char buf[4096];
++    //    struct sockaddr_mctp recv;
++    //    recv.smctp_addr.s_addr = 0x09;
++    //    recv.smctp_family = AF_MCTP;
++    //    recv.smctp_network = 1;
++    //    socklen_t len = sizeof(recv);
++    //    for(;;){
++    //        int c = recvfrom(mctpk.sd,buf,4096,0,reinterpret_cast<struct sockaddr*>(&recv),&len);
++    //        if(c<=0){
++    //            std::cout<<"Not received any, trying again"<<std::endl;
++    //            continue;
++    //        }
++    //        std::cout<<"Received "<<rc<<" bytes from special:"<<std::endl;
++    //        for(int i=0;i<rc;i++){
++    //            printf("0x%02x ", buf[i]);
++    //        }
++    //        printf("Messgage Tag: 0x%02x\n", recv.smctp_tag);
++    //        //break;
++    //    }
++    //}
++
++    printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
+     //Mocking Header
+-    receiveResult.second.push_back(0x01);
+-
++    receiveResult.second.insert(receiveResult.second.begin(),0x01);
+     for(int i=0; i < rc;i++){
+         receiveResult.second.push_back(rxbuf[i]);
+     }
++    struct sockaddr_mctp addr = mctpk.addr;
++    std::cout<<"Send Details: "<<std::endl;
++    std::cout<<"EID: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;
++    std::cout<<"Family: "<<static_cast<unsigned>(addr.smctp_family)<<std::endl;
++    std::cout<<"Tag Owner: "<<static_cast<unsigned>((addr.smctp_tag & (1<<0)))<<std::endl;
++    std::cout<<"Tag Value: "<<static_cast<unsigned>((addr.smctp_tag&0x07))<<std::endl;
++    std::cout<<"Type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
++    struct sockaddr_mctp recv_addr = mctpk.recv_addr;
++    std::cout<<"Receive Details: "<<std::endl;
++    std::cout<<"EID: "<<static_cast<unsigned>(recv_addr.smctp_addr.s_addr)<<std::endl;
++    std::cout<<"Family: "<<static_cast<unsigned>(recv_addr.smctp_family)<<std::endl;
++    std::cout<<"Tag Owner: "<<static_cast<unsigned>((recv_addr.smctp_tag & (1<<0)))<<std::endl;
++    std::cout<<"Tag Value: "<<static_cast<unsigned>((recv_addr.smctp_tag&0x07))<<std::endl;
++    std::cout<<"Type: "<<static_cast<unsigned>(recv_addr.smctp_type)<<std::endl;
++    receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
+      
++//    void* ptr = nullptr;
++   // boost::asio::post([this,ptr, receiveResult , recv_addr](){
++    //        this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr,(recv_addr.smctp_tag & (1<<(1-1))) , (recv_addr.smctp_tag&0x07) ,receiveResult.second, 1);
++     //       });
+ 
+-    receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
+-    
+     return receiveResult;
+ }
+ 
+@@ -719,6 +682,7 @@ std::pair<boost::system::error_code, int>
+                         const uint8_t msgTag, const bool tagOwner,
+                         const ByteArray& request)
+ {
++    std::cout<<"SendYield called"<<std::endl;
+     auto it = this->endpointMap.find(dstEId);
+     if (this->endpointMap.end() == it)
+     {
+diff --git a/mctp_impl.hpp b/mctp_impl.hpp
+index d9db4de..6f2e749 100644
+--- a/mctp_impl.hpp
++++ b/mctp_impl.hpp
+@@ -32,7 +32,7 @@
+ #include <sys/socket.h>
+ #include <unistd.h>
+ #include <stdlib.h>
+-
++#include "mctp_kernel_binding.h"
+ namespace mctpw
+ {
+ /// MCTP Endpoint Id
+@@ -96,10 +96,11 @@ class MCTPImpl
+     std::shared_ptr<sdbusplus::asio::connection> connection;
+     mctpw::MCTPConfiguration config{};
+     /// Callback to be executed when a network change occurs
+-    ReconfigurationCallback networkChangeCallback = nullptr;
++
+     /// Callback to be executed when a MCTP message received
++    ReconfigurationCallback networkChangeCallback = nullptr;
+     ReceiveMessageCallback receiveCallback = nullptr;
+-
++    MCTPKernelBinding mctpk = MCTPKernelBinding(0x01,1);
+     static const inline std::unordered_map<MessageType, const std::string>
+         msgTypeToPropertyName = {{MessageType::pldm, "PLDM"},
+                                  {MessageType::ncsi, "NCSI"},
+@@ -228,7 +229,7 @@ class MCTPImpl
+                      uint16_t vmsgType*/);
+     size_t eraseDevice(eid_t eid);
+     std::optional<std::string> getDeviceLocation(const eid_t eid);
+-
++    
+   private:
+     std::unordered_map<
+         std::string, std::vector<std::unique_ptr<sdbusplus::bus::match::match>>>
+diff --git a/mctp_kernel_binding.cpp b/mctp_kernel_binding.cpp
+index af7a087..4911284 100644
+--- a/mctp_kernel_binding.cpp
++++ b/mctp_kernel_binding.cpp
+@@ -1,10 +1,10 @@
+ #include "mctp_kernel_binding.h"
+ #include "mctp_kernel_utils.cpp"
+-#include <err.h>
+-#include <errno.h>
+-#include <string.h>
+-#include <vector>
+-using ByteArray = std::vector<uint8_t>;
++#include <iostream>
++void MCTPKernelBinding::setSd(int sock_d){
++    this->sd = sock_d;
++}
++
+ MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network){
+     addr.smctp_family = AF_MCTP;
+     addr.smctp_tag = MCTP_TAG_OWNER;
+@@ -14,23 +14,36 @@ MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network){
+     recv_addr.smctp_family = AF_MCTP;
+     recv_addr.smctp_addr.s_addr = MCTP_ADDR_ANY;
+     recv_addr.smctp_type = type;
+-};
+ 
+-int MCTPKernelBinding::sendReceiveMessage(mctp_eid_t destination_eid, ByteArray request, char **response){
++
+     int rc;
+     rc = createSocket();
+     if(rc < 0){
+         err(EXIT_FAILURE, "Error creating socket: %s\n", strerror(errno));
+     }
+-    rc = sendMessage(destination_eid, request);
++    setSd(rc);
++    std::cout<<"Socket creation successful"<<std::endl;
++};
++
++int MCTPKernelBinding::sendReceiveMessage(mctp_eid_t destination_eid, ByteArray request, char response[], int response_size){
++    int rc = sendMessage(destination_eid, request);
+     if(rc < static_cast<int>(request.size()-1)){
+         err(EXIT_FAILURE, "Error sending message: %s\n", strerror(errno));
+     }
+-    rc = receiveMessage(response);
++    std::cout<<"Send successful"<<std::endl;
++    //setResponseTag();
++    rc = receiveMessage(response, response_size);
+     if(rc < 0){ 
+         err(EXIT_FAILURE, "Error receiving message: %s\n", strerror(errno));
+     }
++    std::cout<<"Receive successful"<<std::endl;
++     
+     return rc;
++
++}
++
++void MCTPKernelBinding::setResponseTag(){
++    recv_addr.smctp_tag = addr.smctp_tag & static_cast<unsigned char>(~MCTP_TAG_OWNER);
+ }
+ int MCTPKernelBinding:: createSocket(){
+     sd = socket(AF_MCTP, SOCK_DGRAM, 0);
+@@ -53,16 +66,18 @@ int MCTPKernelBinding::sendMessage(mctp_eid_t destination_eid, ByteArray& messag
+         err(EXIT_FAILURE,"Invalid messsage length: %zu",message_size);
+     }
+     setEid(destination_eid);
++    auto p = message.data();
++    p++;
++    message_size = message_size-1;
+     //const void* message_data_p = removePldmHeader(message, message_size);
+-    int rc = sendto(sd, message.data(), message_size, 0, reinterpret_cast<sockaddr*>(&addr), sizeof(struct sockaddr_mctp)); 
++    int rc = sendto(sd, p, message_size, 0, reinterpret_cast<sockaddr*>(&addr), sizeof(struct sockaddr_mctp)); 
+     return rc;
+ }
+ 
+-int MCTPKernelBinding::receiveMessage(char **rxbuf){
+-    auto recv_len = sizeof(rxbuf);
++int MCTPKernelBinding::receiveMessage(char rxbuf[], int recv_len){
+     socklen_t recv_addr_len = sizeof(recv_addr);
+     int rc = recvfrom(sd, rxbuf, recv_len , 0 , reinterpret_cast<struct sockaddr*>(&recv_addr), &recv_addr_len);
+-    return rc;
++    return rc; 
+ }
+ 
+ 
+diff --git a/mctp_kernel_binding.h b/mctp_kernel_binding.h
+index fdfb9f7..4455edf 100644
+--- a/mctp_kernel_binding.h
++++ b/mctp_kernel_binding.h
+@@ -7,26 +7,25 @@
+ #include <err.h>
+ #include <string.h>
+ #include <errno.h>
+-
++#include <functional>
+ using ByteArray = std::vector<uint8_t>;
+-#define GETSOCKETERRNO() (errno)
+ 
+ class MCTPKernelBinding
+ {
+     public:
+     MCTPKernelBinding(uint8_t type, int network);
+ 
+-
+     struct sockaddr_mctp addr;
+     struct sockaddr_mctp recv_addr;
+     int sd;
+ 
+-
++    void setSd(int sock_d);
++    void setResponseTag();
+     int createSocket();
+     int createNonBlockSocket();
+     int sendMessage(mctp_eid_t destination_eid, ByteArray& message);
+-    int receiveMessage(char **rxbuf);
++    int receiveMessage(char rxbuf[], int recv_len);
+     void setEid(mctp_eid_t eid);
+ 
+-    int sendReceiveMessage(mctp_eid_t destination_eid, ByteArray request, char **response);
++    int sendReceiveMessage(mctp_eid_t destination_eid, ByteArray request, char response[], int response_size);
+ };
+diff --git a/test_mctp_m2.cpp b/test_mctp_m2.cpp
+index 5eb0f0c..e69de29 100644
+--- a/test_mctp_m2.cpp
++++ b/test_mctp_m2.cpp
+@@ -1,15 +0,0 @@
+-#include "mctp_kernel_binding.h"
+-#include <err.h>
+-#include <stdio.h>
+-void test(){
+-    ByteArray msg;
+-    char *rxbuf;
+-    msg.push_back(0x80);
+-    msg.push_back(0x02);
+-    
+-    MCTPKernelBinding mctpk(0x00, 1);
+-    int r = mctpk.sendReceiveMessage(0xCD, msg, &rxbuf);
+-    for(int i=0;i<r;i++){
+-        printf("0x%02x ",rxbuf[i]);
+-    }
+-}

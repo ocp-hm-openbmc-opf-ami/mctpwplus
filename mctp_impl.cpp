@@ -27,7 +27,6 @@
 #include <unordered_set>
 #include <stdint.h>
 #include <string.h>
-#include "test_mctp_m2.cpp"
 
 int parse_hex_addr(const char* in, uint8_t *out, size_t *out_len)
 {
@@ -547,16 +546,6 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
     return eids;
 }
 
-struct sockaddr_mctp  MCTPImpl::initializeMctp(eid_t dstEid){
-    struct sockaddr_mctp addr;
-    addr.smctp_addr.s_addr = dstEid;
-    addr.smctp_family = AF_MCTP;
-    addr.smctp_type = 1;
-    addr.smctp_tag = MCTP_TAG_OWNER;
-
-    return addr;
-    
-}
 
 void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
                                 const ByteArray& request,
@@ -601,91 +590,65 @@ std::pair<boost::system::error_code, ByteArray>
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult; 
     }
- 
-    std::cout<<"Socketing to MCTP in "<<__func__<<"()"<<std::endl;
-    test();
-    int sd = socket(AF_MCTP,SOCK_DGRAM,0);
-    int rc;
-    if(sd<0)
-        err(EXIT_FAILURE, "socket");
-
-    struct sockaddr_mctp addr;
-    memset(&addr,0x0,sizeof(addr));
-    addr.smctp_family = AF_MCTP;
-    addr.smctp_network = 1;
-    addr.smctp_type = 1;
-    addr.smctp_addr.s_addr = 0x09;
-    addr.smctp_tag = MCTP_TAG_OWNER;
-
-    std::cout<<"Sending mctp request to net: "<<addr.smctp_network<<", eid: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<< ", type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
-    std::cout<<"Request bytes: "<<std::endl;
-    for(auto i : request){
-        std::cout<< std::hex<<"0x"<<static_cast<int>(i)<< " ";
+     
+    char rxbuf[1024];
+    int rc = mctpk.sendReceiveMessage(0x09, request,rxbuf, 1024);
+    printf("Received %d bytes\n",rc);
+    for(int i=0;i<rc;i++){
+        printf("0x%02x ",rxbuf[i]);
     }
-    std::cout<<std::dec;
-    std::cout<<std::endl;
-    /*
-    //extended addressing
-    addr.smctp_ifindex = 1;
-    uint8_t lladdr[MAX_ADDR_LEN];
-    size_t sz = sizeof(lladdr);
-    parse_hex_addr("0x58",lladdr,&sz);
-    memcpy(addr.smctp_haddr,lladdr,sz);
-    //addr.smctp_haddr = lladdr;
-    addr.smctp_halen = sizeof(addr.smctp_haddr);
-    int opt = 1;
+    printf("\n");
 
-    rc = setsockopt(sd, SOL_MCTP, MCTP_OPT_ADDR_EXT, &opt, sizeof(opt));
-    if(rc<0){
-        errx(EXIT_FAILURE, "Kernel does not support extended addressing");
-    }
-    */
+    //if(rxbuf[1]==0x02 && rxbuf[2]==0x11 && rxbuf[3]==0x00 && rxbuf[4]==0x05 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x01 && rc==14){
+    //    std::cout<<"Last request of errorr reached"<<std::endl;
+    //    char buf[4096];
+    //    struct sockaddr_mctp recv;
+    //    recv.smctp_addr.s_addr = 0x09;
+    //    recv.smctp_family = AF_MCTP;
+    //    recv.smctp_network = 1;
+    //    socklen_t len = sizeof(recv);
+    //    for(;;){
+    //        int c = recvfrom(mctpk.sd,buf,4096,0,reinterpret_cast<struct sockaddr*>(&recv),&len);
+    //        if(c<=0){
+    //            std::cout<<"Not received any, trying again"<<std::endl;
+    //            continue;
+    //        }
+    //        std::cout<<"Received "<<rc<<" bytes from special:"<<std::endl;
+    //        for(int i=0;i<rc;i++){
+    //            printf("0x%02x ", buf[i]);
+    //        }
+    //        printf("Messgage Tag: 0x%02x\n", recv.smctp_tag);
+    //        //break;
+    //    }
+    //}
 
-    //Removing PLDM message type from header
-    auto p = request.data();
-    p++;
-
-    //sending
-    rc = sendto(sd,p,(request.size()-1),0,reinterpret_cast<struct sockaddr*> (&addr), sizeof(struct sockaddr_mctp));
-    if(rc!=static_cast<int>(request.size()-1)){
-        err(EXIT_FAILURE, "sendto: (%zd)",(request.size()-1)) ;
-    }
-    std::cout<<"Send successful"<<std::endl;
-
-    //receiving
-    struct sockaddr_mctp recv_addr;
-    recv_addr.smctp_family = AF_MCTP;
-    recv_addr.smctp_addr.s_addr = MCTP_ADDR_ANY;
-    recv_addr.smctp_type = 1;
-    char rxbuf[4096];
-    socklen_t addrlen = sizeof(recv_addr);
-    size_t rcv_len = sizeof(rxbuf);
-
-    rc = recvfrom(sd,rxbuf,rcv_len,0,reinterpret_cast<struct sockaddr *>(&recv_addr), &addrlen);
-    if(rc<=0)
-        err(EXIT_FAILURE, "recv from");
-    std::cout<<"Receive code: "<<rc<<std::endl;
-    std::cout<<"Received message: "<<std::endl;
-    
-    for(auto i: receiveResult.second){
-        printf("0x%02x ",i);
-    }
-
-    void* ptr = nullptr;
-    boost::asio::post([this,ptr, receiveResult, recv_addr](){
-            this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr, true, recv_addr.smctp_tag,receiveResult.second, 1);
-            });
-    
+    printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
     //Mocking Header
-    receiveResult.second.push_back(0x01);
-
+    receiveResult.second.insert(receiveResult.second.begin(),0x01);
     for(int i=0; i < rc;i++){
         receiveResult.second.push_back(rxbuf[i]);
     }
-     
-
+    struct sockaddr_mctp addr = mctpk.addr;
+    std::cout<<"Send Details: "<<std::endl;
+    std::cout<<"EID: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;
+    std::cout<<"Family: "<<static_cast<unsigned>(addr.smctp_family)<<std::endl;
+    std::cout<<"Tag Owner: "<<static_cast<unsigned>((addr.smctp_tag & (1<<0)))<<std::endl;
+    std::cout<<"Tag Value: "<<static_cast<unsigned>((addr.smctp_tag&0x07))<<std::endl;
+    std::cout<<"Type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
+    struct sockaddr_mctp recv_addr = mctpk.recv_addr;
+    std::cout<<"Receive Details: "<<std::endl;
+    std::cout<<"EID: "<<static_cast<unsigned>(recv_addr.smctp_addr.s_addr)<<std::endl;
+    std::cout<<"Family: "<<static_cast<unsigned>(recv_addr.smctp_family)<<std::endl;
+    std::cout<<"Tag Owner: "<<static_cast<unsigned>((recv_addr.smctp_tag & (1<<0)))<<std::endl;
+    std::cout<<"Tag Value: "<<static_cast<unsigned>((recv_addr.smctp_tag&0x07))<<std::endl;
+    std::cout<<"Type: "<<static_cast<unsigned>(recv_addr.smctp_type)<<std::endl;
     receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
-    
+     
+//    void* ptr = nullptr;
+   // boost::asio::post([this,ptr, receiveResult , recv_addr](){
+    //        this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr,(recv_addr.smctp_tag & (1<<(1-1))) , (recv_addr.smctp_tag&0x07) ,receiveResult.second, 1);
+     //       });
+
     return receiveResult;
 }
 
@@ -719,6 +682,7 @@ std::pair<boost::system::error_code, int>
                         const uint8_t msgTag, const bool tagOwner,
                         const ByteArray& request)
 {
+    std::cout<<"SendYield called"<<std::endl;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
