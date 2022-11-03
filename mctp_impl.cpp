@@ -599,28 +599,28 @@ std::pair<boost::system::error_code, ByteArray>
     }
     printf("\n");
 
-    //if(rxbuf[1]==0x02 && rxbuf[2]==0x11 && rxbuf[3]==0x00 && rxbuf[4]==0x05 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x01 && rc==14){
-    //    std::cout<<"Last request of errorr reached"<<std::endl;
-    //    char buf[4096];
-    //    struct sockaddr_mctp recv;
-    //    recv.smctp_addr.s_addr = 0x09;
-    //    recv.smctp_family = AF_MCTP;
-    //    recv.smctp_network = 1;
-    //    socklen_t len = sizeof(recv);
-    //    for(;;){
-    //        int c = recvfrom(mctpk.sd,buf,4096,0,reinterpret_cast<struct sockaddr*>(&recv),&len);
-    //        if(c<=0){
-    //            std::cout<<"Not received any, trying again"<<std::endl;
-    //            continue;
-    //        }
-    //        std::cout<<"Received "<<rc<<" bytes from special:"<<std::endl;
-    //        for(int i=0;i<rc;i++){
-    //            printf("0x%02x ", buf[i]);
-    //        }
-    //        printf("Messgage Tag: 0x%02x\n", recv.smctp_tag);
-    //        //break;
-    //    }
-    //}
+    if(rxbuf[1]==0x05 && rxbuf[2]==0x14 && rxbuf[3]==0x00 && rxbuf[4]==0x00 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x00 && rc==12){
+        std::cout<<"Last request of errorr reached"<<std::endl;
+        char buf[4096];
+        struct sockaddr_mctp recv;
+        recv.smctp_addr.s_addr = 0x09;
+        recv.smctp_family = AF_MCTP;
+        recv.smctp_network = 1;
+        socklen_t len = sizeof(recv);
+        for(;;){
+            int c = recvfrom(mctpk.sd,buf,4096,0,reinterpret_cast<struct sockaddr*>(&recv),&len);
+            if(c<=0){
+                std::cout<<"Not received any, trying again"<<std::endl;
+                continue;
+            }
+            std::cout<<"Received "<<c<<" bytes from special:"<<std::endl;
+            for(int i=0;i<c;i++){
+                printf("0x%02x ", buf[i]);
+            }
+            printf("Messgage Tag: 0x%02x\n", recv.smctp_tag);
+            //break;
+        }
+    }
 
     printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
     //Mocking Header
