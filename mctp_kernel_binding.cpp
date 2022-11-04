@@ -47,6 +47,20 @@ void MCTPKernelBinding::setResponseTag(){
 }
 int MCTPKernelBinding:: createSocket(){
     sd = socket(AF_MCTP, SOCK_DGRAM, 0);
+    if(sd < 0){
+        err(EXIT_FAILURE, "Failed to open socket");
+    }
+    //type and addr information should come from user(pldmd, nvme, etc)
+    struct sockaddr_mctp addr_;
+    memset(&addr_, 0, sizeof(addr_));
+    addr_.smctp_family = AF_MCTP;
+    addr_.smctp_addr.s_addr = MCTP_ADDR_ANY;
+    addr_.smctp_type = 1; 
+    int rc = bind(sd, reinterpret_cast<sockaddr*>(&addr_),
+                  sizeof(addr_));
+    if(rc){
+        err(EXIT_FAILURE, "Failed to bind\n");
+    }
     return sd; 
 }
 
