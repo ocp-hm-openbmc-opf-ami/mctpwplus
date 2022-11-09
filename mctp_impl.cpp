@@ -590,65 +590,66 @@ std::pair<boost::system::error_code, ByteArray>
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult; 
     }
-     
+
+    int rc = mctpk.sendMessage(0x09, request);
     char rxbuf[1024];
-    int rc = mctpk.sendReceiveMessage(0x09, request,rxbuf, 1024);
-    printf("Received %d bytes\n",rc);
-    for(int i=0;i<rc;i++){
-        printf("0x%02x ",rxbuf[i]);
-    }
-    printf("\n");
+    rc = mctpk.receiveMessage(rxbuf,1024);
+    //int rc;
+   // mctpk.str->async_wait(boost::asio::posix::stream_descriptor::wait_error,[&](const boost::system::error_code &ec){
+   //         if(ec){
+   //         std::cout << "waiting";
+   //         }
+   //         rc = mctpk.sendReceiveMessage(0x09, request, rxbuf, 1024);
+    printf("Receivd %d bytes\n",rc);
+   // for(int i=0;i<rc;i++){
+   //     printf("0x%02x ",rxbuf[i]);
+   // }
+   // printf("\n");
+   //         });
+    
 
-    if(rxbuf[1]==0x05 && rxbuf[2]==0x14 && rxbuf[3]==0x00 && rxbuf[4]==0x00 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x00 && rc==12){
-        std::cout<<"Last request of errorr reached"<<std::endl;
-        char buf[4096];
-        struct sockaddr_mctp recv;
-        recv.smctp_addr.s_addr = 0x09;
-        recv.smctp_family = AF_MCTP;
-        recv.smctp_network = 1;
-        socklen_t len = sizeof(recv);
-        for(;;){
-            int c = recvfrom(mctpk.sd,buf,4096,0,reinterpret_cast<struct sockaddr*>(&recv),&len);
-            if(c<=0){
-                std::cout<<"Not received any, trying again"<<std::endl;
-                continue;
-            }
-            std::cout<<"Received "<<c<<" bytes from special:"<<std::endl;
-            for(int i=0;i<c;i++){
-                printf("0x%02x ", buf[i]);
-            }
-            printf("Messgage Tag: 0x%02x\n", recv.smctp_tag);
-            //break;
-        }
-    }
+    // if(rxbuf[1]==0x05 && rxbuf[2]==0x14 && rxbuf[3]==0x00 && rxbuf[4]==0x00 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x00 && rc==12){
+    //         std::cout<<"Last request of errorr reached"<<std::endl;
+    //    char buf[4096];
+    //    int c = mctpk.receiveMessage(buf,4096);
+    //    if(c<=0){
+    //        std::cout<<"Not received any, trying again"<<std::endl;
+    //        err(EXIT_FAILURE, " not received any bro");
+    //    }
+    //    std::cout<<"Received "<<c<<" bytes from special:"<<std::endl;
+    //    for(int i=0;i<c;i++){
+    //        printf("0x%02x ", buf[i]);
+    //    }
+    //    printf("Messgage Tag: 0x%02x\n", mctpk.recv_addr.smctp_tag);
+    //}
 
-    printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
-    //Mocking Header
-    receiveResult.second.insert(receiveResult.second.begin(),0x01);
-    for(int i=0; i < rc;i++){
-        receiveResult.second.push_back(rxbuf[i]);
-    }
-    struct sockaddr_mctp addr = mctpk.addr;
-    std::cout<<"Send Details: "<<std::endl;
-    std::cout<<"EID: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;
-    std::cout<<"Family: "<<static_cast<unsigned>(addr.smctp_family)<<std::endl;
-    std::cout<<"Tag Owner: "<<static_cast<unsigned>((addr.smctp_tag & (1<<0)))<<std::endl;
-    std::cout<<"Tag Value: "<<static_cast<unsigned>((addr.smctp_tag&0x07))<<std::endl;
-    std::cout<<"Type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
-    struct sockaddr_mctp recv_addr = mctpk.recv_addr;
-    std::cout<<"Receive Details: "<<std::endl;
-    std::cout<<"EID: "<<static_cast<unsigned>(recv_addr.smctp_addr.s_addr)<<std::endl;
-    std::cout<<"Family: "<<static_cast<unsigned>(recv_addr.smctp_family)<<std::endl;
-    std::cout<<"Tag Owner: "<<static_cast<unsigned>((recv_addr.smctp_tag & (1<<0)))<<std::endl;
-    std::cout<<"Tag Value: "<<static_cast<unsigned>((recv_addr.smctp_tag&0x07))<<std::endl;
-    std::cout<<"Type: "<<static_cast<unsigned>(recv_addr.smctp_type)<<std::endl;
-    receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
+    //printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
+    ////Mocking Header
+    //receiveResult.second.insert(receiveResult.second.begin(),0x01);
+    //for(int i=0; i < rc;i++){
+    //    receiveResult.second.push_back(rxbuf[i]);
+    //}
+    //struct sockaddr_mctp addr = mctpk.addr;
+    //std::cout<<"Send Details: "<<std::endl;
+    //std::cout<<"EID: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;
+    //std::cout<<"Family: "<<static_cast<unsigned>(addr.smctp_family)<<std::endl;
+    //std::cout<<"Tag Owner: "<<static_cast<unsigned>((addr.smctp_tag & (1<<0)))<<std::endl;
+    //std::cout<<"Tag Value: "<<static_cast<unsigned>((addr.smctp_tag&0x07))<<std::endl;
+    //std::cout<<"Type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
+    //struct sockaddr_mctp recv_addr = mctpk.recv_addr;
+    //std::cout<<"Receive Details: "<<std::endl;
+    //std::cout<<"EID: "<<static_cast<unsigned>(recv_addr.smctp_addr.s_addr)<<std::endl;
+    //std::cout<<"Family: "<<static_cast<unsigned>(recv_addr.smctp_family)<<std::endl;
+    //std::cout<<"Tag Owner: "<<static_cast<unsigned>((recv_addr.smctp_tag & (1<<0)))<<std::endl;
+    //std::cout<<"Tag Value: "<<static_cast<unsigned>((recv_addr.smctp_tag&0x07))<<std::endl;
+    //std::cout<<"Type: "<<static_cast<unsigned>(recv_addr.smctp_type)<<std::endl;
+    //receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
      
+
 //    void* ptr = nullptr;
    // boost::asio::post([this,ptr, receiveResult , recv_addr](){
     //        this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr,(recv_addr.smctp_tag & (1<<(1-1))) , (recv_addr.smctp_tag&0x07) ,receiveResult.second, 1);
      //       });
-
     return receiveResult;
 }
 
@@ -670,7 +671,7 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const eid_t dstEId,
         }
         return;
     }
-
+    
     connection->async_method_call(
         callback, it->second.second, "/xyz/openbmc_project/mctp",
         "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload", dstEId,
@@ -693,14 +694,15 @@ std::pair<boost::system::error_code, int>
             boost::system::errc::make_error_code(boost::system::errc::io_error),
             -1);
     }
-
+     
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
+
     int status = connection->yield_method_call<int>(
         yield, ec, it->second.second, "/xyz/openbmc_project/mctp",
         "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload", dstEId,
         msgTag, tagOwner, request);
-
+    status = 1;
     return std::make_pair(ec, status);
 }
 
@@ -785,7 +787,8 @@ MCTPImpl::MCTPImpl(boost::asio::io_context& ioContext,
                    const ReceiveMessageCallback& rxCb) :
     connection(std::make_shared<sdbusplus::asio::connection>(ioContext)),
     config(configIn), networkChangeCallback(networkChangeCb),
-    receiveCallback(rxCb)
+    receiveCallback(rxCb),
+    mctpk(0x01,1,ioContext) 
 {
 }
 
@@ -796,7 +799,8 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
                    const ReceiveMessageCallback& rxCb) :
     connection(conn),
     config(configIn), networkChangeCallback(networkChangeCb),
-    receiveCallback(rxCb)
+    receiveCallback(rxCb),
+    mctpk(0x01,1,conn->get_io_context())
 {
 }
-} // namespace mctpw
+}// namespace mctpw

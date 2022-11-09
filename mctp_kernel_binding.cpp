@@ -5,25 +5,54 @@ void MCTPKernelBinding::setSd(int sock_d){
     this->sd = sock_d;
 }
 
-MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network){
+MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network, boost::asio::io_context& context): str(context) 
+
+{
     addr.smctp_family = AF_MCTP;
     addr.smctp_tag = MCTP_TAG_OWNER;
     addr.smctp_type = type;
     addr.smctp_network = network;
-
     recv_addr.smctp_family = AF_MCTP;
     recv_addr.smctp_addr.s_addr = MCTP_ADDR_ANY;
     recv_addr.smctp_type = type;
-
-
+    
     int rc;
     rc = createSocket();
     if(rc < 0){
         err(EXIT_FAILURE, "Error creating socket: %s\n", strerror(errno));
     }
     setSd(rc);
+    str.assign(sd);
+    read_looper();
     std::cout<<"Socket creation successful"<<std::endl;
 };
+//void MCTPKernelBinding::initializeStreamDescriptor(){
+//
+//    asyncReceiverFd.assign(sd);
+//}
+//void MCTPKernelBinding::startReceiveMessageAsync(ReceiveMessageCallback rxCb){
+//    receiveCallback = rxCb;
+//    receiveMessageAsync();
+//}
+//void MCTPKernelBinding::receiveMessageAsync(){
+//    asyncReceiverFd.async_wait(boost::asio::posix::stream_descriptor::wait_error, [this](const boost::system::error_code& ec){
+//            if(ec){
+//            printf("Waiting...");
+//            receiveMessageAsync();
+//            }
+//            char buf[4096];
+//            int rc = receiveMessage(buf,4096);
+//            if(rc>0){
+//                std::vector<uint8_t> message;
+//                for(int i=0;i<rc;i++){
+//                message.push_back(buf[i]);
+//                }
+//                void *ptr = nullptr;
+//                receiveCallback(ptr, recv_addr.smctp_addr.s_addr,(recv_addr.smctp_tag & (1<<(1-1))),(recv_addr.smctp_tag&0x07),message,1));
+//            receiveMessageAsync();
+//            }
+//            });
+//}
 
 int MCTPKernelBinding::sendReceiveMessage(mctp_eid_t destination_eid, ByteArray request, char response[], int response_size){
     int rc = sendMessage(destination_eid, request);
@@ -42,6 +71,33 @@ int MCTPKernelBinding::sendReceiveMessage(mctp_eid_t destination_eid, ByteArray 
 
 }
 
+void MCTPKernelBinding::read_looper(){
+    
+    printf("Readlooper to read\n");
+    str.async_wait(boost::asio::posix::stream_descriptor::wait_read,[this](const boost::system::error_code& ec){
+            printf("Ready to read\n");
+            if(ec)
+            {
+                std::cout<<"Read error\n";
+            }
+            printf("Ready to read 2\n");
+            char rxbuf[1048];
+            int rc = receiveMessage(rxbuf,1048);
+            if(rc<=0){
+            err(EXIT_FAILURE, "Not received any, Trying again");
+            read_looper();
+            }
+            printf("Received %d bytes:",rc);
+            std::vector<char> data;
+            for(int i=0;i<rc;i++){
+            printf("0x%02x",rxbuf[i]);
+            data.push_back(rxbuf[i]); 
+            }
+            queue.push_back(data);
+            read_looper();
+            }); 
+}
+
 void MCTPKernelBinding::setResponseTag(){
     recv_addr.smctp_tag = addr.smctp_tag & static_cast<unsigned char>(~MCTP_TAG_OWNER);
 }
@@ -54,7 +110,7 @@ int MCTPKernelBinding:: createSocket(){
     struct sockaddr_mctp addr_;
     memset(&addr_, 0, sizeof(addr_));
     addr_.smctp_family = AF_MCTP;
-    addr_.smctp_addr.s_addr = MCTP_ADDR_ANY;
+    addr_.smctp_addr.s_addr = 0x09;
     addr_.smctp_type = 1; 
     int rc = bind(sd, reinterpret_cast<sockaddr*>(&addr_),
                   sizeof(addr_));
@@ -73,17 +129,12 @@ void MCTPKernelBinding::setEid(mctp_eid_t eid){
     MCTPKernelBinding::addr.smctp_addr.s_addr = eid;
 }
 
-int MCTPKernelBinding::sendMessage(mctp_eid_t destination_eid, ByteArray& message){
-
-    size_t message_size = message.size();
-    if(message_size < 1 || message_size>64){
-        err(EXIT_FAILURE,"Invalid messsage length: %zu",message_size);
-    }
+int MCTPKernelBinding::sendMessage(mctp_eid_t destination_eid,const ByteArray& message){
+    size_t message_size = message.size()-1;
     setEid(destination_eid);
     auto p = message.data();
     p++;
     message_size = message_size-1;
-    //const void* message_data_p = removePldmHeader(message, message_size);
     int rc = sendto(sd, p, message_size, 0, reinterpret_cast<sockaddr*>(&addr), sizeof(struct sockaddr_mctp)); 
     return rc;
 }

@@ -100,7 +100,8 @@ class MCTPImpl
     /// Callback to be executed when a MCTP message received
     ReconfigurationCallback networkChangeCallback = nullptr;
     ReceiveMessageCallback receiveCallback = nullptr;
-    MCTPKernelBinding mctpk = MCTPKernelBinding(0x01,1);
+    MCTPKernelBinding mctpk;
+   // = MCTPKernelBinding(0x01,1, connection->get_io_context());
     static const inline std::unordered_map<MessageType, const std::string>
         msgTypeToPropertyName = {{MessageType::pldm, "PLDM"},
                                  {MessageType::ncsi, "NCSI"},
