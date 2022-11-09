@@ -573,7 +573,7 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
 }
 
 std::pair<boost::system::error_code, ByteArray>
-    MCTPImpl::sendReceiveYield(boost::asio::yield_context , eid_t dstEId,
+    MCTPImpl::sendReceiveYield(boost::asio::yield_context yield, eid_t dstEId,
                                const ByteArray& request,
                                std::chrono::milliseconds timeout)
 {
@@ -590,11 +590,20 @@ std::pair<boost::system::error_code, ByteArray>
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult; 
     }
+    printf("Request: \n");
+    for(auto i:request){
+        printf("0x%02x ",i);
+    }
+
     int rc = mctpk.sendMessage(0x09, request);
-    printf("Sent %d bytes\n",rc);
-    rc = mctpk.yield_receive(receiveResult.second, 0x00, timeout);
+    printf("\nSent %d bytes\n",rc);
+    rc = mctpk.yield_receive(yield, receiveResult.second, 0x00, timeout);
     if(rc == 1){
         printf("Received %d bytes \n", receiveResult.second.size());
+        printf("Result: \n");
+        for(auto i:receiveResult.second){
+            printf("0x%02x ",i);
+        }
     }
     else{
         printf("Cannot find matching receive \n");
@@ -647,7 +656,7 @@ std::pair<boost::system::error_code, ByteArray>
     //std::cout<<"Tag Owner: "<<static_cast<unsigned>((recv_addr.smctp_tag & (1<<0)))<<std::endl;
     //std::cout<<"Tag Value: "<<static_cast<unsigned>((recv_addr.smctp_tag&0x07))<<std::endl;
     //std::cout<<"Type: "<<static_cast<unsigned>(recv_addr.smctp_type)<<std::endl;
-    //receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
+    receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
      
 
 //    void* ptr = nullptr;

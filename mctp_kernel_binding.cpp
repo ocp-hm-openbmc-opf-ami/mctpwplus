@@ -21,42 +21,17 @@ MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network, boost::asio::io_
     if(rc < 0){
         err(EXIT_FAILURE, "Error creating socket: %s\n", strerror(errno));
     }
+    std::cout<<"Socket creation successful"<<std::endl;
     setSd(rc);
     str.assign(sd);
     read_looper();
-    std::cout<<"Socket creation successful"<<std::endl;
 };
-//void MCTPKernelBinding::initializeStreamDescriptor(){
-//
-//    asyncReceiverFd.assign(sd);
-//}
-//void MCTPKernelBinding::startReceiveMessageAsync(ReceiveMessageCallback rxCb){
-//    receiveCallback = rxCb;
-//    receiveMessageAsync();
-//}
-//void MCTPKernelBinding::receiveMessageAsync(){
-//    asyncReceiverFd.async_wait(boost::asio::posix::stream_descriptor::wait_error, [this](const boost::system::error_code& ec){
-//            if(ec){
-//            printf("Waiting...");
-//            receiveMessageAsync();
-//            }
-//            char buf[4096];
-//            int rc = receiveMessage(buf,4096);
-//            if(rc>0){
-//                std::vector<uint8_t> message;
-//                for(int i=0;i<rc;i++){
-//                message.push_back(buf[i]);
-//                }
-//                void *ptr = nullptr;
-//                receiveCallback(ptr, recv_addr.smctp_addr.s_addr,(recv_addr.smctp_tag & (1<<(1-1))),(recv_addr.smctp_tag&0x07),message,1));
-//            receiveMessageAsync();
-//            }
-//            });
-//}
 //void MCTPKernelBinding::register_reception(std::chrono::milliseconds timeout){
 //    recv_timer.expires_after(timeout)
 //}
-int MCTPKernelBinding::yield_receive(std::vector<uint8_t> &response, uint8_t tag, std::chrono::milliseconds timeout){
+int MCTPKernelBinding::yield_receive(boost::asio::yield_context yield,std::vector<uint8_t> &response, uint8_t tag, std::chrono::milliseconds timeout){
+    printf("Send Tag: 0x%02x\n",tag);
+    std::cout<<"Timeout given: "<< timeout.count()<<std::endl;
     if(queue.find(tag)!=queue.end()){
         response = queue[tag];
         queue.erase(tag);
@@ -64,16 +39,38 @@ int MCTPKernelBinding::yield_receive(std::vector<uint8_t> &response, uint8_t tag
     }
     else{
         recv_timer.expires_after(timeout);
+        boost::system::error_code ec;
+        recv_timer.async_wait(yield[ec]);
         recv_timer.wait();
         if(queue.find(tag)!=queue.end()){
+            std::cout<<"FOUND\n";
             response = queue[tag];
             queue.erase(tag);
             return 1;
         }
-        else{
-            return 0;
-        }
-    return 0;
+        
+        //recv_timer.async_wait([this,tag,&response](const boost::system::error_code& ec){
+        //        if(ec == boost::asio::error::operation_aborted){
+        //        std::cout<<"Timer cancelled\n";
+        //        std::cout<<"Queue size: "<<queue.size()<<"\n";
+        //        if(queue.find(tag)!=queue.end()){
+        //        std::cout<<"FOUND~\n";
+        //        }
+        //        else{
+        //        std::cout<<"NOT FOUND~~\n";
+        //        }
+        //        }
+        //        else{
+        //        std::cout<<"Timer expired\n";
+        //        }
+        //        });
+        //if(queue.find(tag)!=queue.end()){
+        //    std::cout<<"FOUND~\n";
+        //}
+        //else{
+        //    std::cout<<"NOT FOUND~~\n";
+        //}
+        return 0;  
     }
 }
 
@@ -95,28 +92,27 @@ int MCTPKernelBinding::sendReceiveMessage(mctp_eid_t destination_eid, ByteArray 
 }
 
 void MCTPKernelBinding::read_looper(){
-    
-    printf("Readlooper to read\n");
+    printf("Read Looper to read\n");
     str.async_wait(boost::asio::posix::stream_descriptor::wait_read,[this](const boost::system::error_code& ec){
             printf("Ready to read\n");
             if(ec)
             {
                 std::cout<<"Read error\n";
             }
-            printf("Ready to read 2\n");
             char rxbuf[1048];
             int rc = receiveMessage(rxbuf,1048);
             if(rc<=0){
-            err(EXIT_FAILURE, "Not received any, Trying again");
+            std::cout<<"Not received any, Trying again\n";
             read_looper();
             }
-            printf("Received %d bytes:",rc);
+            printf("Received %d bytes:\n",rc);
             std::vector<uint8_t> data;
             for(int i=0;i<rc;i++){
-            printf("0x%02x",rxbuf[i]);
+            printf("0x%02x ",rxbuf[i]);
             recv_timer.cancel();
             data.push_back(rxbuf[i]); 
             }
+            printf("\nReceive Tag: 0x%02x\n",recv_addr.smctp_tag);
             queue[recv_addr.smctp_tag] = data;
             read_looper();
             }); 

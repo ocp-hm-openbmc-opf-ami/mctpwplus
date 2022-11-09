@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <functional>
 #include <boost/asio.hpp>
+#include <boost/asio/spawn.hpp>
 using ByteArray = std::vector<uint8_t>;
 
 using ReceiveMessageCallback = std::function<void(void*, mctp_eid_t, bool, uint8_t, const ByteArray &, int)>;
@@ -24,7 +25,7 @@ class MCTPKernelBinding
     int fd;
     void read_looper();
     boost::asio::posix::stream_descriptor str;
-    int yield_receive(std::vector<uint8_t> &response, uint8_t tag, std::chrono::milliseconds timeout);
+    int yield_receive(boost::asio::yield_context yield,std::vector<uint8_t> &response, uint8_t tag, std::chrono::milliseconds timeout);
     ReceiveMessageCallback receiveCallback;
     void setSd(int sock_d);
     void setResponseTag();
