@@ -575,7 +575,7 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
 std::pair<boost::system::error_code, ByteArray>
     MCTPImpl::sendReceiveYield(boost::asio::yield_context , eid_t dstEId,
                                const ByteArray& request,
-                               std::chrono::milliseconds )
+                               std::chrono::milliseconds timeout)
 {
     auto receiveResult = std::make_pair(
         boost::system::errc::make_error_code(boost::system::errc::success),
@@ -590,17 +590,21 @@ std::pair<boost::system::error_code, ByteArray>
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult; 
     }
-
     int rc = mctpk.sendMessage(0x09, request);
-    char rxbuf[1024];
-    rc = mctpk.receiveMessage(rxbuf,1024);
+    printf("Sent %d bytes\n",rc);
+    rc = mctpk.yield_receive(receiveResult.second, 0x00, timeout);
+    if(rc == 1){
+        printf("Received %d bytes \n", receiveResult.second.size());
+    }
+    else{
+        printf("Cannot find matching receive \n");
+    }
     //int rc;
    // mctpk.str->async_wait(boost::asio::posix::stream_descriptor::wait_error,[&](const boost::system::error_code &ec){
    //         if(ec){
    //         std::cout << "waiting";
    //         }
    //         rc = mctpk.sendReceiveMessage(0x09, request, rxbuf, 1024);
-    printf("Receivd %d bytes\n",rc);
    // for(int i=0;i<rc;i++){
    //     printf("0x%02x ",rxbuf[i]);
    // }

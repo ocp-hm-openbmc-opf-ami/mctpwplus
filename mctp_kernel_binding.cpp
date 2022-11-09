@@ -5,7 +5,7 @@ void MCTPKernelBinding::setSd(int sock_d){
     this->sd = sock_d;
 }
 
-MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network, boost::asio::io_context& context): str(context) 
+MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network, boost::asio::io_context& context):recv_timer(context), str(context) 
 
 {
     addr.smctp_family = AF_MCTP;
@@ -53,6 +53,29 @@ MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network, boost::asio::io_
 //            }
 //            });
 //}
+//void MCTPKernelBinding::register_reception(std::chrono::milliseconds timeout){
+//    recv_timer.expires_after(timeout)
+//}
+int MCTPKernelBinding::yield_receive(std::vector<uint8_t> &response, uint8_t tag, std::chrono::milliseconds timeout){
+    if(queue.find(tag)!=queue.end()){
+        response = queue[tag];
+        queue.erase(tag);
+        return 1;
+    }
+    else{
+        recv_timer.expires_after(timeout);
+        recv_timer.wait();
+        if(queue.find(tag)!=queue.end()){
+            response = queue[tag];
+            queue.erase(tag);
+            return 1;
+        }
+        else{
+            return 0;
+        }
+    return 0;
+    }
+}
 
 int MCTPKernelBinding::sendReceiveMessage(mctp_eid_t destination_eid, ByteArray request, char response[], int response_size){
     int rc = sendMessage(destination_eid, request);
@@ -88,12 +111,13 @@ void MCTPKernelBinding::read_looper(){
             read_looper();
             }
             printf("Received %d bytes:",rc);
-            std::vector<char> data;
+            std::vector<uint8_t> data;
             for(int i=0;i<rc;i++){
             printf("0x%02x",rxbuf[i]);
+            recv_timer.cancel();
             data.push_back(rxbuf[i]); 
             }
-            queue.push_back(data);
+            queue[recv_addr.smctp_tag] = data;
             read_looper();
             }); 
 }
@@ -130,7 +154,7 @@ void MCTPKernelBinding::setEid(mctp_eid_t eid){
 }
 
 int MCTPKernelBinding::sendMessage(mctp_eid_t destination_eid,const ByteArray& message){
-    size_t message_size = message.size()-1;
+    size_t message_size = message.size();
     setEid(destination_eid);
     auto p = message.data();
     p++;

@@ -18,12 +18,13 @@ class MCTPKernelBinding
     MCTPKernelBinding(uint8_t type, int network,boost::asio::io_context& io_context);
     struct sockaddr_mctp addr;
     struct sockaddr_mctp recv_addr;
-    std::vector<std::vector<char>> queue;
+    std::unordered_map<uint8_t,std::vector<uint8_t>> queue;
     int sd;
+    boost::asio::steady_timer recv_timer;
     int fd;
     void read_looper();
     boost::asio::posix::stream_descriptor str;
-
+    int yield_receive(std::vector<uint8_t> &response, uint8_t tag, std::chrono::milliseconds timeout);
     ReceiveMessageCallback receiveCallback;
     void setSd(int sock_d);
     void setResponseTag();
