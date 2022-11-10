@@ -595,10 +595,21 @@ std::pair<boost::system::error_code, ByteArray>
         printf("0x%02x ",i);
     }
 
+    //char rxbuf[1024];
+    //int rc = mctpk.sendReceiveMessage(0x09, request, rxbuf,1024);
+    //
+    //for(int i=0;i<rc;i++){
+    //    printf("Response: \n");
+    //    receiveResult.second.push_back(rxbuf[i]);
+    //    printf("0x%02x ",i);
+    //}
+    
     int rc = mctpk.sendMessage(0x09, request);
     printf("\nSent %d bytes\n",rc);
     rc = mctpk.yield_receive(yield, receiveResult.second, 0x00, timeout);
     if(rc == 1){
+        //Mocking Header
+        receiveResult.second.insert(receiveResult.second.begin(),0x01);
         printf("Received %d bytes \n", receiveResult.second.size());
         printf("Result: \n");
         for(auto i:receiveResult.second){
@@ -637,11 +648,6 @@ std::pair<boost::system::error_code, ByteArray>
     //}
 
     //printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
-    ////Mocking Header
-    //receiveResult.second.insert(receiveResult.second.begin(),0x01);
-    //for(int i=0; i < rc;i++){
-    //    receiveResult.second.push_back(rxbuf[i]);
-    //}
     //struct sockaddr_mctp addr = mctpk.addr;
     //std::cout<<"Send Details: "<<std::endl;
     //std::cout<<"EID: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;

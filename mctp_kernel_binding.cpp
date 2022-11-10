@@ -122,7 +122,7 @@ void MCTPKernelBinding::setResponseTag(){
     recv_addr.smctp_tag = addr.smctp_tag & static_cast<unsigned char>(~MCTP_TAG_OWNER);
 }
 int MCTPKernelBinding:: createSocket(){
-    sd = socket(AF_MCTP, SOCK_DGRAM, 0);
+    sd = socket(AF_MCTP, SOCK_DGRAM | SOCK_NONBLOCK, 0);
     if(sd < 0){
         err(EXIT_FAILURE, "Failed to open socket");
     }
