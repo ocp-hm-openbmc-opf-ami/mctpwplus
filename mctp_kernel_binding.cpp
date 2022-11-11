@@ -41,7 +41,6 @@ int MCTPKernelBinding::yield_receive(boost::asio::yield_context yield,std::vecto
         recv_timer.expires_after(timeout);
         boost::system::error_code ec;
         recv_timer.async_wait(yield[ec]);
-        recv_timer.wait();
         if(queue.find(tag)!=queue.end()){
             std::cout<<"FOUND\n";
             response = queue[tag];
@@ -130,13 +129,14 @@ int MCTPKernelBinding:: createSocket(){
     struct sockaddr_mctp addr_;
     memset(&addr_, 0, sizeof(addr_));
     addr_.smctp_family = AF_MCTP;
-    addr_.smctp_addr.s_addr = 0x09;
+    addr_.smctp_addr.s_addr = MCTP_ADDR_ANY;
     addr_.smctp_type = 1; 
     int rc = bind(sd, reinterpret_cast<sockaddr*>(&addr_),
                   sizeof(addr_));
-    if(rc){
+    if(rc!=0){
         err(EXIT_FAILURE, "Failed to bind\n");
     }
+    printf("BINDED RC:%d\n",rc);
     return sd; 
 }
 
@@ -160,7 +160,7 @@ int MCTPKernelBinding::sendMessage(mctp_eid_t destination_eid,const ByteArray& m
 }
 
 int MCTPKernelBinding::receiveMessage(char rxbuf[], int recv_len){
-    socklen_t recv_addr_len = sizeof(recv_addr);
+    socklen_t recv_addr_len = sizeof(recv);
     int rc = recvfrom(sd, rxbuf, recv_len , 0 , reinterpret_cast<struct sockaddr*>(&recv_addr), &recv_addr_len);
     return rc; 
 }

@@ -608,8 +608,6 @@ std::pair<boost::system::error_code, ByteArray>
     printf("\nSent %d bytes\n",rc);
     rc = mctpk.yield_receive(yield, receiveResult.second, 0x00, timeout);
     if(rc == 1){
-        //Mocking Header
-        receiveResult.second.insert(receiveResult.second.begin(),0x01);
         printf("Received %d bytes \n", receiveResult.second.size());
         printf("Result: \n");
         for(auto i:receiveResult.second){
@@ -619,21 +617,12 @@ std::pair<boost::system::error_code, ByteArray>
     else{
         printf("Cannot find matching receive \n");
     }
-    //int rc;
-   // mctpk.str->async_wait(boost::asio::posix::stream_descriptor::wait_error,[&](const boost::system::error_code &ec){
-   //         if(ec){
-   //         std::cout << "waiting";
-   //         }
-   //         rc = mctpk.sendReceiveMessage(0x09, request, rxbuf, 1024);
-   // for(int i=0;i<rc;i++){
-   //     printf("0x%02x ",rxbuf[i]);
+   //char rxbuf[4096]; 
+   // for(int i=0;i<static_cast<int>(receiveResult.second.size());i++){
+   //     rxbuf[i] = receiveResult.second[i];
    // }
-   // printf("\n");
-   //         });
-    
-
-    // if(rxbuf[1]==0x05 && rxbuf[2]==0x14 && rxbuf[3]==0x00 && rxbuf[4]==0x00 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x00 && rc==12){
-    //         std::cout<<"Last request of errorr reached"<<std::endl;
+   //  if(rxbuf[1]==0x05 && rxbuf[2]==0x14 && rxbuf[3]==0x00 && rxbuf[4]==0x00 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x00 && rc==12){
+    //     std::cout<<"Last request of errorr reached"<<std::endl;
     //    char buf[4096];
     //    int c = mctpk.receiveMessage(buf,4096);
     //    if(c<=0){
@@ -647,6 +636,17 @@ std::pair<boost::system::error_code, ByteArray>
     //    printf("Messgage Tag: 0x%02x\n", mctpk.recv_addr.smctp_tag);
     //}
 
+    //int rc;
+   // mctpk.str->async_wait(boost::asio::posix::stream_descriptor::wait_error,[&](const boost::system::error_code &ec){
+   //         if(ec){
+   //         std::cout << "waiting";
+   //         }
+   //         rc = mctpk.sendReceiveMessage(0x09, request, rxbuf, 1024);
+   // for(int i=0;i<rc;i++){
+   //     printf("0x%02x ",rxbuf[i]);
+   // }
+   // printf("\n");
+   //         });
     //printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
     //struct sockaddr_mctp addr = mctpk.addr;
     //std::cout<<"Send Details: "<<std::endl;
@@ -669,6 +669,8 @@ std::pair<boost::system::error_code, ByteArray>
    // boost::asio::post([this,ptr, receiveResult , recv_addr](){
     //        this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr,(recv_addr.smctp_tag & (1<<(1-1))) , (recv_addr.smctp_tag&0x07) ,receiveResult.second, 1);
      //       });
+        //Mocking Header
+        receiveResult.second.insert(receiveResult.second.begin(),0x01);
     return receiveResult;
 }
 
