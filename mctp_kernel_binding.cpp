@@ -160,7 +160,7 @@ int MCTPKernelBinding::sendMessage(mctp_eid_t destination_eid,const ByteArray& m
 }
 
 int MCTPKernelBinding::receiveMessage(char rxbuf[], int recv_len){
-    socklen_t recv_addr_len = sizeof(recv);
+    socklen_t recv_addr_len = sizeof(recv_addr);
     int rc = recvfrom(sd, rxbuf, recv_len , 0 , reinterpret_cast<struct sockaddr*>(&recv_addr), &recv_addr_len);
     return rc; 
 }

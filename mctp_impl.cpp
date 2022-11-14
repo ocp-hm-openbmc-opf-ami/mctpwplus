@@ -617,24 +617,25 @@ std::pair<boost::system::error_code, ByteArray>
     else{
         printf("Cannot find matching receive \n");
     }
-   //char rxbuf[4096]; 
+   // char rxbuf[4096]; 
    // for(int i=0;i<static_cast<int>(receiveResult.second.size());i++){
    //     rxbuf[i] = receiveResult.second[i];
    // }
    //  if(rxbuf[1]==0x05 && rxbuf[2]==0x14 && rxbuf[3]==0x00 && rxbuf[4]==0x00 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x00 && rc==12){
-    //     std::cout<<"Last request of errorr reached"<<std::endl;
-    //    char buf[4096];
-    //    int c = mctpk.receiveMessage(buf,4096);
-    //    if(c<=0){
-    //        std::cout<<"Not received any, trying again"<<std::endl;
-    //        err(EXIT_FAILURE, " not received any bro");
-    //    }
-    //    std::cout<<"Received "<<c<<" bytes from special:"<<std::endl;
-    //    for(int i=0;i<c;i++){
-    //        printf("0x%02x ", buf[i]);
-    //    }
-    //    printf("Messgage Tag: 0x%02x\n", mctpk.recv_addr.smctp_tag);
-    //}
+   //     std::cout<<"Last request of errorr reached"<<std::endl;
+   //    char buf[4096];
+   //    int c= recv(mctpk.sd,buf,4096,0);
+   //     //int c = mctpk.receiveMessage(buf,4096);
+   //     if(c<=0){
+   //         std::cout<<"Not received any, trying again"<<std::endl;
+   //         err(EXIT_FAILURE, " not received any bro");
+   //     }
+   //     std::cout<<"Received "<<c<<" bytes from special:"<<std::endl;
+   //     for(int i=0;i<c;i++){
+   //         printf("0x%02x ", buf[i]);
+   //     }
+   //     printf("Messgage Tag: 0x%02x\n", mctpk.recv_addr.smctp_tag);
+   // }
 
     //int rc;
    // mctpk.str->async_wait(boost::asio::posix::stream_descriptor::wait_error,[&](const boost::system::error_code &ec){
