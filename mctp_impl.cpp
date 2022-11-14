@@ -159,7 +159,7 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
 int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId, const uint16_t timeout)
 {
-    return 1;
+    return 0;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
@@ -195,7 +195,7 @@ int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
 int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId)
 {
-    return 1;
+    return 0;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
@@ -701,11 +701,15 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const eid_t dstEId,
 }
 
 std::pair<boost::system::error_code, int>
-    MCTPImpl::sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
+    MCTPImpl::sendYield(boost::asio::yield_context& , const eid_t dstEId,
                         const uint8_t msgTag, const bool tagOwner,
                         const ByteArray& request)
 {
     std::cout<<"SendYield called"<<std::endl;
+    printf("Request: \n");
+    for(auto i: request){
+        printf("0x%02x ", i);
+    }
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
@@ -720,11 +724,18 @@ std::pair<boost::system::error_code, int>
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
 
-    int status = connection->yield_method_call<int>(
-        yield, ec, it->second.second, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload", dstEId,
-        msgTag, tagOwner, request);
-    status = 1;
+    int c = mctpk.sendMessageWithTag(0x09, request, msgTag , tagOwner);
+    if(c != static_cast<int>(request.size()-1)){
+        printf("\nSend failed with onlyu sending %d bytes\n", c);
+    }
+    else{
+        printf("\n%d bytes sent from sendyield\n", c);
+    }
+    //int status = connection->yield_method_call<int>(
+    //    yield, ec, it->second.second, "/xyz/openbmc_project/mctp",
+    //    "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload", dstEId,
+    //    msgTag, tagOwner, request);
+    int status = 0;
     return std::make_pair(ec, status);
 }
 
@@ -810,7 +821,7 @@ MCTPImpl::MCTPImpl(boost::asio::io_context& ioContext,
     connection(std::make_shared<sdbusplus::asio::connection>(ioContext)),
     config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb),
-    mctpk(0x01,1,ioContext) 
+    mctpk(0x01,1,ioContext, rxCb) 
 {
 }
 
@@ -822,7 +833,7 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
     connection(conn),
     config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb),
-    mctpk(0x01,1,conn->get_io_context())
+    mctpk(0x01,1,conn->get_io_context(),rxCb)
 {
 }
 }// namespace mctpw

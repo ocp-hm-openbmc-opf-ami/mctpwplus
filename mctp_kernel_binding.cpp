@@ -5,8 +5,7 @@ void MCTPKernelBinding::setSd(int sock_d){
     this->sd = sock_d;
 }
 
-MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network, boost::asio::io_context& context):recv_timer(context), str(context) 
-
+MCTPKernelBinding::MCTPKernelBinding(uint8_t type, int network, boost::asio::io_context& context, ReceiveMessageCallback rxCb):recv_timer(context), str(context), receiveCallback(rxCb) 
 {
     addr.smctp_family = AF_MCTP;
     addr.smctp_tag = MCTP_TAG_OWNER;
@@ -101,20 +100,40 @@ void MCTPKernelBinding::read_looper(){
             char rxbuf[1048];
             int rc = receiveMessage(rxbuf,1048);
             if(rc<=0){
-            std::cout<<"Not received any, Trying again\n";
-            read_looper();
+                std::cout<<"Not received any, Trying again\n";
+                read_looper();
             }
             printf("Received %d bytes:\n",rc);
             std::vector<uint8_t> data;
             for(int i=0;i<rc;i++){
-            printf("0x%02x ",rxbuf[i]);
-            recv_timer.cancel();
-            data.push_back(rxbuf[i]); 
+                printf("0x%02x ",rxbuf[i]);
+                recv_timer.cancel();
+                data.push_back(rxbuf[i]); 
             }
             printf("\nReceive Tag: 0x%02x\n",recv_addr.smctp_tag);
-            queue[recv_addr.smctp_tag] = data;
+            uint8_t tagOwner = ((recv_addr.smctp_tag&0x08) >>3);
+            if(tagOwner==0x01){
+                data.insert(data.begin(),0x01);
+                void* ptr = nullptr;
+                printf("Tag owner: 0x%02x\n", tagOwner);
+                printf("\nmsgTag: 0x%02x\n", (recv_addr.smctp_tag&0x07));
+                if(tagOwner == 0x01){
+                boost::asio::post([this,ptr, data ](){
+                        this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr,true, (recv_addr.smctp_tag&0x07) ,data, 1);
+                        });
+            }
+                else{
+
+                boost::asio::post([this,ptr, data ](){
+                        this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr,false, (recv_addr.smctp_tag&0x07) ,data, 1);
+                        });
+                }
+            }
+            else{
+                queue[recv_addr.smctp_tag] = data;
+            }
             read_looper();
-            }); 
+    }); 
 }
 
 void MCTPKernelBinding::setResponseTag(){
@@ -155,6 +174,21 @@ int MCTPKernelBinding::sendMessage(mctp_eid_t destination_eid,const ByteArray& m
     auto p = message.data();
     p++;
     message_size = message_size-1;
+    int rc = sendto(sd, p, message_size, 0, reinterpret_cast<sockaddr*>(&addr), sizeof(struct sockaddr_mctp)); 
+    return rc;
+}
+
+int MCTPKernelBinding::sendMessageWithTag(mctp_eid_t destination_eid,const ByteArray& message, uint8_t msgTag, bool tagOwner){
+    size_t message_size = message.size();
+    setEid(destination_eid);
+    auto p = message.data();
+    p++;
+    message_size = message_size-1;
+    if(tagOwner == 1){
+        msgTag = msgTag | 0x08;
+    }
+    addr.smctp_tag = msgTag;
+    printf("Sending message tag: 0x%02x",addr.smctp_tag);
     int rc = sendto(sd, p, message_size, 0, reinterpret_cast<sockaddr*>(&addr), sizeof(struct sockaddr_mctp)); 
     return rc;
 }

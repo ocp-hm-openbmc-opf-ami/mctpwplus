@@ -16,7 +16,7 @@ using ReceiveMessageCallback = std::function<void(void*, mctp_eid_t, bool, uint8
 class MCTPKernelBinding
 {
     public:
-    MCTPKernelBinding(uint8_t type, int network,boost::asio::io_context& io_context);
+    MCTPKernelBinding(uint8_t type, int network,boost::asio::io_context& io_context, ReceiveMessageCallback rxCb);
     struct sockaddr_mctp addr;
     struct sockaddr_mctp recv_addr;
     std::unordered_map<uint8_t,std::vector<uint8_t>> queue;
@@ -27,6 +27,7 @@ class MCTPKernelBinding
     boost::asio::posix::stream_descriptor str;
     int yield_receive(boost::asio::yield_context yield,std::vector<uint8_t> &response, uint8_t tag, std::chrono::milliseconds timeout);
     ReceiveMessageCallback receiveCallback;
+int sendMessageWithTag(mctp_eid_t destination_eid,const ByteArray& message, uint8_t msgTag, bool tagOwner );
     void setSd(int sock_d);
     void setResponseTag();
     int createSocket();
