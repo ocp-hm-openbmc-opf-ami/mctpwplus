@@ -27,6 +27,7 @@
 #include <unordered_set>
 #include <stdint.h>
 #include <string.h>
+#include <fstream>
 
 int parse_hex_addr(const char* in, uint8_t *out, size_t *out_len)
 {
@@ -159,6 +160,13 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
 int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId, const uint16_t timeout)
 {
+    std::ofstream file;
+    file.open("/sys/bus/i2c/devices/8-0070/idle_state");
+    file << "0";
+    file.close();
+    file.open("/sys/bus/i2c/devices/8-0070/selection_lock");
+    file << "1";
+    file.close();
     return 0;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
@@ -195,6 +203,13 @@ int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
 int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId)
 {
+    std::ofstream file;
+    file.open("/sys/bus/i2c/devices/8-0070/idle_state");
+    file << "-2";
+    file.close();
+    file.open("/sys/bus/i2c/devices/8-0070/selection_lock");
+    file << "0";
+    file.close();
     return 0;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
@@ -594,19 +609,9 @@ std::pair<boost::system::error_code, ByteArray>
     for(auto i:request){
         printf("0x%02x ",i);
     }
-
-    //char rxbuf[1024];
-    //int rc = mctpk.sendReceiveMessage(0x09, request, rxbuf,1024);
-    //
-    //for(int i=0;i<rc;i++){
-    //    printf("Response: \n");
-    //    receiveResult.second.push_back(rxbuf[i]);
-    //    printf("0x%02x ",i);
-    //}
-    
     int rc = mctpk.sendMessage(0x09, request);
     printf("\nSent %d bytes\n",rc);
-    rc = mctpk.yield_receive(yield, receiveResult.second, 0x00, timeout);
+    rc = mctpk.yieldReceive(yield, receiveResult.second, 0x00, timeout);
     if(rc == 1){
         printf("Received %d bytes \n", receiveResult.second.size());
         printf("Result: \n");
@@ -617,61 +622,8 @@ std::pair<boost::system::error_code, ByteArray>
     else{
         printf("Cannot find matching receive \n");
     }
-   // char rxbuf[4096]; 
-   // for(int i=0;i<static_cast<int>(receiveResult.second.size());i++){
-   //     rxbuf[i] = receiveResult.second[i];
-   // }
-   //  if(rxbuf[1]==0x05 && rxbuf[2]==0x14 && rxbuf[3]==0x00 && rxbuf[4]==0x00 && rxbuf[5]==0x00 && rxbuf[6]==0x00 && rxbuf[7]==0x00 && rc==12){
-   //     std::cout<<"Last request of errorr reached"<<std::endl;
-   //    char buf[4096];
-   //    int c= recv(mctpk.sd,buf,4096,0);
-   //     //int c = mctpk.receiveMessage(buf,4096);
-   //     if(c<=0){
-   //         std::cout<<"Not received any, trying again"<<std::endl;
-   //         err(EXIT_FAILURE, " not received any bro");
-   //     }
-   //     std::cout<<"Received "<<c<<" bytes from special:"<<std::endl;
-   //     for(int i=0;i<c;i++){
-   //         printf("0x%02x ", buf[i]);
-   //     }
-   //     printf("Messgage Tag: 0x%02x\n", mctpk.recv_addr.smctp_tag);
-   // }
 
-    //int rc;
-   // mctpk.str->async_wait(boost::asio::posix::stream_descriptor::wait_error,[&](const boost::system::error_code &ec){
-   //         if(ec){
-   //         std::cout << "waiting";
-   //         }
-   //         rc = mctpk.sendReceiveMessage(0x09, request, rxbuf, 1024);
-   // for(int i=0;i<rc;i++){
-   //     printf("0x%02x ",rxbuf[i]);
-   // }
-   // printf("\n");
-   //         });
-    //printf("Message Tag: 0x%02x \n", mctpk.recv_addr.smctp_tag);
-    //struct sockaddr_mctp addr = mctpk.addr;
-    //std::cout<<"Send Details: "<<std::endl;
-    //std::cout<<"EID: "<<static_cast<unsigned>(addr.smctp_addr.s_addr)<<std::endl;
-    //std::cout<<"Family: "<<static_cast<unsigned>(addr.smctp_family)<<std::endl;
-    //std::cout<<"Tag Owner: "<<static_cast<unsigned>((addr.smctp_tag & (1<<0)))<<std::endl;
-    //std::cout<<"Tag Value: "<<static_cast<unsigned>((addr.smctp_tag&0x07))<<std::endl;
-    //std::cout<<"Type: "<<static_cast<unsigned>(addr.smctp_type)<<std::endl;
-    //struct sockaddr_mctp recv_addr = mctpk.recv_addr;
-    //std::cout<<"Receive Details: "<<std::endl;
-    //std::cout<<"EID: "<<static_cast<unsigned>(recv_addr.smctp_addr.s_addr)<<std::endl;
-    //std::cout<<"Family: "<<static_cast<unsigned>(recv_addr.smctp_family)<<std::endl;
-    //std::cout<<"Tag Owner: "<<static_cast<unsigned>((recv_addr.smctp_tag & (1<<0)))<<std::endl;
-    //std::cout<<"Tag Value: "<<static_cast<unsigned>((recv_addr.smctp_tag&0x07))<<std::endl;
-    //std::cout<<"Type: "<<static_cast<unsigned>(recv_addr.smctp_type)<<std::endl;
     receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
-     
-
-//    void* ptr = nullptr;
-   // boost::asio::post([this,ptr, receiveResult , recv_addr](){
-    //        this->receiveCallback(ptr, recv_addr.smctp_addr.s_addr,(recv_addr.smctp_tag & (1<<(1-1))) , (recv_addr.smctp_tag&0x07) ,receiveResult.second, 1);
-     //       });
-        //Mocking Header
-        receiveResult.second.insert(receiveResult.second.begin(),0x01);
     return receiveResult;
 }
 
@@ -724,8 +676,8 @@ std::pair<boost::system::error_code, int>
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
 
-    int c = mctpk.sendMessageWithTag(0x09, request, msgTag , tagOwner);
-    if(c != static_cast<int>(request.size()-1)){
+    int c = mctpk.sendMessage(0x09, request, msgTag , tagOwner);
+    if(!c){
         printf("\nSend failed with onlyu sending %d bytes\n", c);
     }
     else{

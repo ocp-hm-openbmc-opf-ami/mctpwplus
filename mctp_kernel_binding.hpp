@@ -1,5 +1,4 @@
-#define PLDM_MESSAGE 0x01
-#include "mctp_kernel_utils.hpp"
+#define PLDM_MESSAGE 0x01 
 #include <sys/socket.h>
 #include "mctp.h"
 #include <stdlib.h>
@@ -7,9 +6,10 @@
 #include <err.h>
 #include <string.h>
 #include <functional>
-#include <boost/asio/posix/stream_descriptor.hpp>
-#include <boost/asio/io_context.hpp>
+#include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include "mctp_kernel_utils.cpp"
 
 using ByteArray = std::vector<uint8_t>;
 
@@ -33,22 +33,24 @@ class MCTPKernelBinding
                 uint8_t tag, std::chrono::milliseconds timeout);
 
     private:
-
         boost::asio::posix::stream_descriptor socketStream;
-        std::unordered_map<uint8_t,ByteArray> tagResponseMap;
         boost::asio::steady_timer receiveTimer;
         ReceiveMessageCallback receiveCallback;
         AddressConstructor addressConstructor;
 
+        void invokeCallback(ReceivedMessage& message);
         void initializeMctpConnection();
-        int createSocket();
         int bindSocket(int socketDescriptor);
-        void insertMessageType(ByteArray& message);
-        bool removeTypeAndSendMessage(struct sockaddr_mctp sendAddress,const ByteArray& message);
+        std::unordered_map<uint8_t,ByteArray> tagResponseMap;
         void getReceivedMessages();
-        ReceivedMessage receiveMessage();
+        bool removeTypeAndSendMessage(struct sockaddr_mctp& sendAddress,const ByteArray& message);
         bool findMatchingResponse(uint8_t tag, ByteArray& response);
-        void invokeCallback(ReceivedMessage message);
+        int createSocket();
+        ReceivedMessage receiveMessage();
+        void insertMessageType(ByteArray& message);
+uint8_t decodeTagOwner(uint8_t tag);
+uint8_t decodeTagValue(uint8_t tag);
+uint8_t encodeTagMessage(uint8_t tagValue, bool tagOwner);
 };
 
 
