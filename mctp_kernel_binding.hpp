@@ -33,6 +33,7 @@ class MCTPKernelBinding
                 uint8_t tag, std::chrono::milliseconds timeout);
 
     private:
+
         boost::asio::posix::stream_descriptor socketStream;
         boost::asio::steady_timer receiveTimer;
         ReceiveMessageCallback receiveCallback;
@@ -48,9 +49,9 @@ class MCTPKernelBinding
         int createSocket();
         ReceivedMessage receiveMessage();
         void insertMessageType(ByteArray& message);
-uint8_t decodeTagOwner(uint8_t tag);
-uint8_t decodeTagValue(uint8_t tag);
-uint8_t encodeTagMessage(uint8_t tagValue, bool tagOwner);
+        uint8_t decodeTagOwner(uint8_t tag);
+        uint8_t decodeTagValue(uint8_t tag);
+        uint8_t encodeTagMessage(uint8_t tagValue, bool tagOwner);
 };
 
 
