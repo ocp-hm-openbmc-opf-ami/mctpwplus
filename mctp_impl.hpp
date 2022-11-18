@@ -32,7 +32,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "mctp_kernel_binding.h"
+#include "mctp_kernel_binding.hpp"
 namespace mctpw
 {
 /// MCTP Endpoint Id

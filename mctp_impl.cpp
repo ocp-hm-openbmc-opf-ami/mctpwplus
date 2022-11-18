@@ -160,6 +160,7 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
 int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId, const uint16_t timeout)
 {
+    std::cout<< "MCTPW ReserveBandwidth called"<<std::endl;
     std::ofstream file;
     file.open("/sys/bus/i2c/devices/8-0070/idle_state");
     file << "0";
@@ -206,7 +207,6 @@ int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
     std::ofstream file;
     file.open("/sys/bus/i2c/devices/8-0070/idle_state");
     file << "-2";
-    file.close();
     file.open("/sys/bus/i2c/devices/8-0070/selection_lock");
     file << "0";
     file.close();

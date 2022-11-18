@@ -9,13 +9,27 @@
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include "mctp_kernel_utils.cpp"
 
 using ByteArray = std::vector<uint8_t>;
 
 using ReceiveMessageCallback = std::function<void(void*, mctp_eid_t, bool, uint8_t, const ByteArray &, int)>;
 
 
+struct ReceivedMessage{
+    struct sockaddr_mctp address;
+    int bytes;
+    ByteArray response;
+};
+
+class AddressConstructor{
+    public:
+        uint8_t messageType;
+        int network;
+        AddressConstructor(uint8_t messageType, int network);
+        struct sockaddr_mctp constructAddress();
+        struct sockaddr_mctp constructAddress(mctp_eid_t destinationEid);
+        struct sockaddr_mctp constructAddress(mctp_eid_t destinationEid, uint8_t tag);
+};
 class MCTPKernelBinding
 {
     public:
