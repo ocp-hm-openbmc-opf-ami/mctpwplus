@@ -32,11 +32,12 @@ This will fetch and build prequisites if needed including boost sdbusplus
 ```
 meson compile -C build -v
 ```
-The output is libcmtpwplus.so which can be linked against applications that
-wish to use MCTP for communication.
-
-There is also one variant of the library libmctpwplus-nothread.so which use
--DBOOST_ASIO_DISABLE_THREADS for building.
+## Library variants
+There are two variants for mctpwplus library. One built with -DBOOST_ASIO_DISABLE_THREADS flag
+and one without it. The output names are libmctpwlus-nothread.so and libmctpwplus.so
+respectively. **If your application is compiled with -DBOOST_ASIO_DISABLE_THREADS and if
+you link with libmctpwplus.so then application can crash**
+User need to choose -lmctpwplus or -lmctpwplus-nothread based on usage.
 
 ## Example
 The main class provided by mctpwplus is MCTPWrapper. The object of this
