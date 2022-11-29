@@ -29,47 +29,6 @@
 #include <string.h>
 #include <fstream>
 
-int parse_hex_addr(const char* in, uint8_t *out, size_t *out_len)
-{
-    int rc = -1;
-    size_t out_pos = 0;
-    while (1) {
-        if (*in == '\0') {
-            rc = 0;
-            break;
-        }
-        else if (*in == ':') {
-            in++;
-            if (*in == ':' || *in == '\0' || out_pos == 0) {
-                // can't have repeated ':' or ':' at start or end.
-                break;
-            }
-        } else {
-            char* endp;
-            int tmp;
-            tmp = strtoul(in, &endp, 16);
-            if (endp == in || tmp > 0xff) {
-                break;
-            }
-            if (out_pos >= *out_len) {
-                break;
-            
-            }
-            *out = static_cast<unsigned>((tmp & 0xff));
-            out++;
-            out_pos++;
-            in = endp;
-        }
-    }
-
-    if (rc) {
-        *out_len = 0;
-    } else {
-        *out_len = out_pos;
-    }
-    return rc;
-}
-
 template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
 using MctpPropertiesVariantType =
