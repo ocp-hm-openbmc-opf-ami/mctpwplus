@@ -14,7 +14,6 @@ using ByteArray = std::vector<uint8_t>;
 
 using ReceiveMessageCallback = std::function<void(void*, mctp_eid_t, bool, uint8_t, const ByteArray &, int)>;
 
-
 struct ReceivedMessage{
     struct sockaddr_mctp address;
     int bytes;

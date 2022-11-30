@@ -26,7 +26,7 @@
 #include <sdbusplus/bus/match.hpp>
 #include <unordered_set>
 #include <stdint.h>
-#include <string.h>
+#include <string>
 #include <fstream>
 
 template <typename T1, typename T2>
@@ -114,12 +114,12 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
         },
         it->second.second, "/xyz/openbmc_project/mctp",
         "xyz.openbmc_project.MCTP.Base", "TriggerDeviceDiscovery");
+
 }
 
 int MCTPImpl::reserveBandwidth(boost::asio::yield_context yield,
                                const eid_t dstEId, const uint16_t timeout)
 {
-    std::cout<< "MCTPW ReserveBandwidth called"<<std::endl;
     std::ofstream file;
     file.open("/sys/bus/i2c/devices/8-0070/idle_state");
     file << "0";
@@ -250,18 +250,18 @@ void MCTPImpl::registerListeners(const std::string& serviceName)
 boost::system::error_code
     MCTPImpl::detectMctpEndpoints(boost::asio::yield_context yield)
 {
-    boost::system::error_code ec =
-        boost::system::errc::make_error_code(boost::system::errc::success);
+    boost::system::error_code ec = boost::system::errc::make_error_code(boost::system::errc::success);
     auto bus_vector = findBusByBindingType(yield);
     if (bus_vector)
     {
         endpointMap = buildMatchingEndpointMap(yield, bus_vector.value());
+
         for (auto& [busId, serviceName] : bus_vector.value())
         {
             registerListeners(serviceName);
         }
     }
-
+    
     listenForNewMctpServices();
     listenForRemovedMctpServices();
 
@@ -320,14 +320,6 @@ int MCTPImpl::getBusId(const std::string& serviceName)
     }
 }
 
-
-std::optional<std::vector<std::pair<unsigned, std::string>>> mockDUTBuses(){
-
-    std::vector<std::pair<unsigned, std::string>> buses; 
-    buses.push_back(std::make_pair(8,"xyz.openbmc_project.MCTP_SMBus_PCIe_slot"));
-    return buses;
-}
-
 std::optional<std::vector<std::pair<unsigned, std::string>>>
     MCTPImpl::findBusByBindingType(boost::asio::yield_context yield)
 {
@@ -336,8 +328,6 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
     DictType<std::string, std::vector<std::string>> services;
     std::vector<std::string> interfaces;
     
-    return mockDUTBuses();
-
     try
     {
         interfaces.push_back(
@@ -382,14 +372,6 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
     }
 }
 
-
-MCTPImpl::EndpointMap mockDUTEidMap(){
-    
-    std::unordered_map<uint8_t, std::pair<unsigned, std::string>> eids;
-    eids[static_cast<unsigned>(9)] = std::make_pair(8,"xyz.openbmc_project.MCTP_SMBus_PCIe_slot");
-    return eids;
-}
-
 /* Return format:
  * map<Eid, pair<bus, service_name_string>>
  */
@@ -399,8 +381,6 @@ MCTPImpl::EndpointMap MCTPImpl::buildMatchingEndpointMap(
 {
     std::unordered_map<uint8_t, std::pair<unsigned, std::string>> eids;
     
-    return mockDUTEidMap();
-
     for (auto& bus : buses)
     {
         boost::system::error_code ec;
@@ -564,24 +544,16 @@ std::pair<boost::system::error_code, ByteArray>
             boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult; 
     }
-    printf("Request: \n");
-    for(auto i:request){
-        printf("0x%02x ",i);
-    }
-    int rc = mctpk.sendMessage(0x09, request);
-    printf("\nSent %d bytes\n",rc);
-    rc = mctpk.yieldReceive(yield, receiveResult.second, 0x00, timeout);
-    if(rc == 1){
-        printf("Received %d bytes \n", receiveResult.second.size());
-        printf("Result: \n");
-        for(auto i:receiveResult.second){
-            printf("0x%02x ",i);
-        }
-    }
-    else{
-        printf("Cannot find matching receive \n");
-    }
-
+    mctpk.sendMessage(dstEId, request);
+    mctpk.yieldReceive(yield, receiveResult.second, MCTP_TAG_OWNER , timeout);
+    //if(!mctpk.sendMessage(dstEId, request)){
+    //    receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::timed_out);
+    //    return receiveResult;
+    //}
+    //if(!mctpk.yieldReceive(yield, receiveResult.second, MCTP_TAG_OWNER, timeout)){
+    //    receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::timed_out);
+    //    return receiveResult;
+    //}
     receiveResult.first = boost::system::errc::make_error_code(boost::system::errc::success);
     return receiveResult;
 }
@@ -616,11 +588,7 @@ std::pair<boost::system::error_code, int>
                         const uint8_t msgTag, const bool tagOwner,
                         const ByteArray& request)
 {
-    std::cout<<"SendYield called"<<std::endl;
-    printf("Request: \n");
-    for(auto i: request){
-        printf("0x%02x ", i);
-    }
+    int status;
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
@@ -635,18 +603,11 @@ std::pair<boost::system::error_code, int>
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
 
-    int c = mctpk.sendMessage(0x09, request, msgTag , tagOwner);
-    if(!c){
-        printf("\nSend failed with onlyu sending %d bytes\n", c);
+    if(!mctpk.sendMessage(dstEId, request, msgTag , tagOwner)){
+        status = -1;
+        return std::make_pair(ec ,status);
     }
-    else{
-        printf("\n%d bytes sent from sendyield\n", c);
-    }
-    //int status = connection->yield_method_call<int>(
-    //    yield, ec, it->second.second, "/xyz/openbmc_project/mctp",
-    //    "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload", dstEId,
-    //    msgTag, tagOwner, request);
-    int status = 0;
+    status = 0;
     return std::make_pair(ec, status);
 }
 
@@ -732,7 +693,7 @@ MCTPImpl::MCTPImpl(boost::asio::io_context& ioContext,
     connection(std::make_shared<sdbusplus::asio::connection>(ioContext)),
     config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb),
-    mctpk(0x01,1,ioContext, rxCb) 
+    mctpk(static_cast<uint8_t>(configIn.type),1,ioContext, rxCb) 
 {
 }
 
@@ -744,7 +705,7 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
     connection(conn),
     config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb),
-    mctpk(0x01,1,conn->get_io_context(),rxCb)
+    mctpk(static_cast<uint8_t>(configIn.type), 1, conn->get_io_context(), rxCb)
 {
 }
 }// namespace mctpw

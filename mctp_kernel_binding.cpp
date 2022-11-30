@@ -1,5 +1,5 @@
 #include "mctp_kernel_binding.hpp"
-
+#include <iostream>
 AddressConstructor::AddressConstructor(uint8_t msgType, int net)
     :
         messageType(msgType), network(net)
@@ -9,7 +9,6 @@ AddressConstructor::AddressConstructor(uint8_t msgType, int net)
 struct sockaddr_mctp AddressConstructor::constructAddress()
 {
     struct sockaddr_mctp address{};
-    //memset(&address, 0, sizeof(address));
     address.smctp_addr.s_addr = MCTP_ADDR_ANY;
     address.smctp_type = messageType;
     address.smctp_family = AF_MCTP;
@@ -20,7 +19,6 @@ struct sockaddr_mctp AddressConstructor::constructAddress()
 struct sockaddr_mctp AddressConstructor::constructAddress(mctp_eid_t destinationEid)
 {
     struct sockaddr_mctp address{};
-    //memset(&address, 0, sizeof(address));
     address.smctp_addr.s_addr = destinationEid;
     address.smctp_type = messageType;
     address.smctp_family = AF_MCTP;
@@ -33,7 +31,6 @@ struct sockaddr_mctp AddressConstructor::constructAddress(mctp_eid_t destination
 struct sockaddr_mctp AddressConstructor::constructAddress(mctp_eid_t destinationEid, uint8_t tag)
 {
     struct sockaddr_mctp address{};
-    //memset(&address, 0, sizeof(address));
     address.smctp_addr.s_addr = destinationEid;
     address.smctp_type = messageType;
     address.smctp_family = AF_MCTP;
@@ -42,6 +39,7 @@ struct sockaddr_mctp AddressConstructor::constructAddress(mctp_eid_t destination
 
     return address;
 };
+
 void MCTPKernelBinding::initializeMctpConnection()
 {
     int socketDescriptor = createSocket();
@@ -84,7 +82,7 @@ bool MCTPKernelBinding::sendMessage(mctp_eid_t destinationEid,
         const ByteArray& message, uint8_t messageTag, bool tagOwner)
 {
     uint8_t tag = encodeTagMessage(messageTag, tagOwner);
-     struct sockaddr_mctp sendAddress = addressConstructor.constructAddress(destinationEid,tag);
+    struct sockaddr_mctp sendAddress = addressConstructor.constructAddress(destinationEid,tag);
    
     return (removeTypeAndSendMessage(sendAddress, message)); 
 }
@@ -93,6 +91,11 @@ bool MCTPKernelBinding::removeTypeAndSendMessage(
         struct sockaddr_mctp& sendAddress,
         const ByteArray& message)
 {
+    //printf("\nRequest: \n");
+    //for(auto i: message){
+    //    printf("0x%02x ", i);
+    //}
+    //printf("\n");
     int rc = sendto(socketStream.native_handle(), message.data() + 1,
             message.size() - 1, 0,
             reinterpret_cast<struct sockaddr*>(&sendAddress),
@@ -110,6 +113,7 @@ int MCTPKernelBinding::yieldReceive(boost::asio::yield_context yield,
         ByteArray &response, uint8_t tag, 
         std::chrono::milliseconds timeout)
 {
+    tag = decodeTagValue(tag);
     if(!findMatchingResponse(tag, response))
     {
         receiveTimer.expires_after(timeout);
@@ -140,11 +144,13 @@ void MCTPKernelBinding::getReceivedMessages()
                 {
                     getReceivedMessages();
                 }
-
+                //printf("\nReceived Message: \n");
+                //for(auto i: message.response){
+                //printf("0x%02x ",i);
+                //}
+                //printf("\n");
                 receiveTimer.cancel();
-                message.response.resize(message.bytes);
-                insertMessageType(message.response);
-
+                
                 if(decodeTagOwner(message.address.smctp_tag) == 0)
                 {
                     tagResponseMap[message.address.smctp_tag] = message.response;
@@ -162,7 +168,7 @@ ReceivedMessage MCTPKernelBinding::receiveMessage()
 {
     ReceivedMessage receivedMessage;
     receivedMessage.response.resize(1048);
-    receivedMessage.address = addressConstructor.constructAddress(0x09);
+    receivedMessage.address = addressConstructor.constructAddress(MCTP_ADDR_ANY);
     socklen_t receiveAddressLength = sizeof(receivedMessage.address);
 
     receivedMessage.bytes = recvfrom(socketStream.native_handle(), receivedMessage.response.data(),
@@ -170,6 +176,9 @@ ReceivedMessage MCTPKernelBinding::receiveMessage()
             reinterpret_cast<struct sockaddr*>(&receivedMessage.address),
             &(receiveAddressLength));
     
+    receivedMessage.response.resize(receivedMessage.bytes);
+    insertMessageType(receivedMessage.response);
+
     return receivedMessage; 
 }
 
@@ -197,7 +206,6 @@ uint8_t MCTPKernelBinding::decodeTagOwner(uint8_t tag)
 uint8_t MCTPKernelBinding::decodeTagValue(uint8_t tag)
 {
     return (tag & 0x07);
-
 }
 
 uint8_t MCTPKernelBinding::encodeTagMessage(uint8_t tagValue, bool tagOwner)
