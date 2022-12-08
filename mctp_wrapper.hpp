@@ -29,7 +29,7 @@ namespace mctpw
 class MCTPImpl;
 /// MCTP Endpoint Id
 
-using NetworkID = uint16_t;
+using NetworkID = uint8_t;
 using LocalEID = uint8_t;
 
 using eid_t = uint8_t;
@@ -470,15 +470,16 @@ class MCTPWrapper
                                  {MessageType::vdiana, "VDIANA"}};
 
     static const inline std::unordered_map<BindingType, const std::string>
-        bindingToInterface = {{BindingType::mctpOverSmBus,
-                               "xyz.openbmc_project.MCTP.Binding.SMBus"},
-                              {BindingType::mctpOverPcieVdm,
-                               "xyz.openbmc_project.MCTP.Binding.PCIe"},
-                              {BindingType::mctpOverUsb, ""},
-                              {BindingType::mctpOverKcs, ""},
-                              {BindingType::mctpOverSerial, ""},
-                              {BindingType::mctpOverI3C, "xyz.openbmc_project.MCTP.Binding.I3C"},
-                              {BindingType::vendorDefined, ""}};
+        bindingToInterface = {
+            {BindingType::mctpOverSmBus,
+             "xyz.openbmc_project.MCTP.Binding.SMBus"},
+            {BindingType::mctpOverPcieVdm,
+             "xyz.openbmc_project.MCTP.Binding.PCIe"},
+            {BindingType::mctpOverUsb, ""},
+            {BindingType::mctpOverKcs, ""},
+            {BindingType::mctpOverSerial, ""},
+            {BindingType::mctpOverI3C, "xyz.openbmc_project.MCTP.Binding.I3C"},
+            {BindingType::vendorDefined, ""}};
 
   private:
     std::unique_ptr<MCTPImpl> pimpl;
