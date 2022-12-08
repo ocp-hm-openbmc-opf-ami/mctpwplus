@@ -53,6 +53,7 @@ int main(int argc, char* argv[])
         {"usb", BindingType::mctpOverUsb},
         {"kcs", BindingType::mctpOverKcs},
         {"serial", BindingType::mctpOverSerial},
+        {"i3c", BindingType::mctpOverI3C},
         {"vendor", BindingType::vendorDefined}};
 
     std::map<std::string, MessageType> msgTypeArgs{

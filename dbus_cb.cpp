@@ -176,7 +176,6 @@ int onInterfacesAdded(sd_bus_message* rawMsg, void* userData,
                                        context->addToEidMap(yield, serviceName);
                                        context->networkChangeCallback(
                                            userData, event, yield);
-                                       return 1;
                                    });
             }
         }
@@ -228,7 +227,6 @@ int onInterfacesRemoved(sd_bus_message* rawMsg, void* userData,
                                     event](boost::asio::yield_context yield) {
                                        context->networkChangeCallback(
                                            userData, event, yield);
-                                       return 1;
                                    });
             }
             else

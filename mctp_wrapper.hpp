@@ -92,6 +92,7 @@ enum class BindingType : uint8_t
     mctpOverUsb = 0x03,
     mctpOverKcs = 0x04,
     mctpOverSerial = 0x05,
+    mctpOverI3C = 0x06,
     vendorDefined = 0xFF,
 };
 
@@ -168,6 +169,11 @@ struct MCTPConfiguration
         VendorMessageType(uint16_t vendorMsgType, uint16_t vendorMsgTypeMask) :
             value(vendorMsgType), mask(vendorMsgTypeMask)
         {
+        }
+
+        constexpr uint16_t cmdSetType() const
+        {
+            return value & mask;
         }
 
         /// Vendor defined message type
@@ -471,6 +477,7 @@ class MCTPWrapper
                               {BindingType::mctpOverUsb, ""},
                               {BindingType::mctpOverKcs, ""},
                               {BindingType::mctpOverSerial, ""},
+                              {BindingType::mctpOverI3C, "xyz.openbmc_project.MCTP.Binding.I3C"},
                               {BindingType::vendorDefined, ""}};
 
   private:
