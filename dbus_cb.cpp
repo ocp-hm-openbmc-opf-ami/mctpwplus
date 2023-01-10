@@ -112,7 +112,7 @@ int onInterfacesAdded(sd_bus_message* rawMsg, void* userData,
     try
     {
         message.read(object_path, values);
-        auto serviceName = message.get_sender();
+        auto serviceName = std::string(message.get_sender());
         auto itSupportedMsgTypes =
             values.find("xyz.openbmc_project.MCTP.SupportedMessageTypes");
         if (values.end() != itSupportedMsgTypes)

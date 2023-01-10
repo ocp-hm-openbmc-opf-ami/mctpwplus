@@ -750,7 +750,19 @@ std::pair<boost::system::error_code, int>
 void MCTPImpl::addToEidMap(boost::asio::yield_context yield,
                            const std::string& serviceName)
 {
-    int busID = getBusId(serviceName);
+    int busID = 0;
+    try
+    {
+        busID = getBusId(serviceName);
+    }
+    catch (const std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            ("Error in getting getBusID from service" + serviceName + ". " +
+             e.what())
+                .c_str());
+        return;
+    }
     std::vector<std::pair<unsigned, std::string>> buses;
     buses.emplace_back(busID, serviceName);
     auto eidMap = buildMatchingEndpointMap(yield, buses);
