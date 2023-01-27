@@ -65,7 +65,7 @@ DeleteServiceCallback::DeleteServiceCallback(MCTPImpl& mctpImpl) :
 void DeleteServiceCallback::operator()(sdbusplus::message::message& msg)
 {
     phosphor::logging::log<phosphor::logging::level::INFO>(
-        (std::string("Deleting device ") + msg.get_sender()).c_str());
+        (std::string("Service going down ") + msg.get_sender()).c_str());
 
     parent.unRegisterListeners(msg.get_sender());
     parent.matchedBuses.erase(msg.get_sender());
