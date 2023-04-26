@@ -225,6 +225,12 @@ void MCTPImpl::registerListeners(const std::string& serviceName)
         mctpw::onMessageReceivedSignal, static_cast<void*>(this),
         "xyz.openbmc_project.MCTP.Base", "MessageReceivedSignal", serviceName,
         ""));
+    std::string eidWatcher =
+        "type='signal',member='PropertiesChanged',path='/xyz/openbmc_project/"
+        "mctp',arg0='xyz.openbmc_project.MCTP.Base',sender='" +
+        serviceName + "'";
+    signalMatchers.push_back(std::make_unique<sdbusplus::bus::match::match>(
+        *connection, eidWatcher, mctpw::internal::EIDChangeCallback(*this)));
     // Saving all matchers using key as servicename
     matchers.emplace(serviceName, std::move(signalMatchers));
 }
@@ -832,6 +838,49 @@ void MCTPImpl::listenForRemovedMctpServices()
 
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         "Wrapper: Listening for Removed MCTP services");
+}
+
+static eid_t readOwnEID(const std::string& serviceName,
+                        sdbusplus::asio::connection& connection)
+{
+    phosphor::logging::log<phosphor::logging::level::WARNING>(("GetOwnEIDs reading: " + serviceName).c_str());
+    static const std::string baseInterface = "xyz.openbmc_project.MCTP.Base";
+    static const std::string eidProperty = "Eid";
+    return readPropertyValue<eid_t>(connection, serviceName,
+                                    "/xyz/openbmc_project/mctp", baseInterface,
+                                    eidProperty);
+}
+
+void MCTPImpl::getOwnEIDs(OwnEIDChangeCallback callback)
+{
+    if (!callback)
+    {
+        return;
+    }
+
+    this->eidChangeCallback = callback;
+
+    for (const auto& [service, match] : matchers)
+    {
+        phosphor::logging::log<phosphor::logging::level::WARNING>(
+            ("GetOwnEIDs: " + service).c_str());
+        try
+        {
+            eid_t eid = readOwnEID(service, *this->connection);
+            OwnEIDChange evt;
+            OwnEIDChange::EIDChangeData data;
+            data.eid = eid;
+            data.service = service;
+            evt.context = &data;
+            this->eidChangeCallback(evt);
+        }
+        catch (const std::exception& e)
+        {
+            phosphor::logging::log<phosphor::logging::level::WARNING>(
+                ("Wrapper: Error reading eid from " + service + ". " + e.what())
+                    .c_str());
+        }
+    }
 }
 
 MCTPImpl::MCTPImpl(boost::asio::io_context& ioContext,

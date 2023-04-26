@@ -169,3 +169,9 @@ std::optional<std::string> MCTPWrapper::getDeviceLocation(const eid_t eid)
 {
     return pimpl->getDeviceLocation(eid);
 }
+
+
+void MCTPWrapper::getOwnEIDs(OwnEIDChangeCallback callback)
+{
+    pimpl->getOwnEIDs(callback);
+}

@@ -96,6 +96,7 @@ class MCTPImpl
     ReconfigurationCallback networkChangeCallback = nullptr;
     /// Callback to be executed when a MCTP message received
     ReceiveMessageCallback receiveCallback = nullptr;
+    OwnEIDChangeCallback eidChangeCallback;
 
     static const inline std::unordered_map<MessageType, const std::string>
         msgTypeToPropertyName = {{MessageType::pldm, "PLDM"},
@@ -255,6 +256,7 @@ class MCTPImpl
                      uint16_t vmsgType*/);
     size_t eraseDevice(eid_t eid);
     std::optional<std::string> getDeviceLocation(const eid_t eid);
+    void getOwnEIDs(OwnEIDChangeCallback callback);
 
   private:
     std::unordered_map<

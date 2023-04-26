@@ -35,4 +35,10 @@ struct DeleteServiceCallback
     void operator()(sdbusplus::message::message& msg);
     mctpw::MCTPImpl& parent;
 };
+struct EIDChangeCallback
+{
+    explicit EIDChangeCallback(mctpw::MCTPImpl& mctpImpl);
+    void operator()(sdbusplus::message::message& msg);
+    mctpw::MCTPImpl& parent;
+};
 } // namespace mctpw::internal

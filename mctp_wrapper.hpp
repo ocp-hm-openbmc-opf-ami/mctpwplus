@@ -172,16 +172,31 @@ struct Event
     enum class EventType : uint8_t
     {
         deviceAdded,
-        deviceRemoved,
+        deviceRemoved
+        // TODO. Adding this enum value breaks dependent recipes on -Wall
+        // ownEIDChange
     };
     EventType type;
     eid_t eid;
+};
+
+struct OwnEIDChange
+{
+    // This structure is expected to change in future. Thus providing a void* to
+    // have backward compatibility /avoid ABI breaks.
+    struct EIDChangeData
+    {
+        eid_t eid;
+        std::string service;
+    };
+    void* context;
 };
 
 using ReconfigurationCallback =
     std::function<void(void*, const Event&, boost::asio::yield_context& yield)>;
 using ReceiveMessageCallback =
     std::function<void(void*, eid_t, bool, uint8_t, const ByteArray&, int)>;
+using OwnEIDChangeCallback = std::function<void(OwnEIDChange&)>;
 
 /**
  * @brief Wrapper class to access MCTP functionalities
@@ -390,6 +405,20 @@ class MCTPWrapper
      */
     std::optional<std::string> getDeviceLocation(const eid_t eid);
 
+    /**
+     * @brief Get own eid on each available mctp services
+     * 
+     * Multiple mctp services will be running in the system. This method
+     * will invoke the callback for each mctp service with its own eid. 
+     * Also whenever the eid changes on a service the same callback will
+     * be executed with the new eid and related info.
+     * 
+     * @param callback For each own eid available among mctp services this
+     * callback will be executed
+     * @return void
+    */
+    void getOwnEIDs(OwnEIDChangeCallback callback);
+
     /// MCTP Configuration to store message type and vendor defined properties
     MCTPConfiguration config{};
 
@@ -404,15 +433,16 @@ class MCTPWrapper
                                  {MessageType::vdiana, "VDIANA"}};
 
     static const inline std::unordered_map<BindingType, const std::string>
-        bindingToInterface = {{BindingType::mctpOverSmBus,
-                               "xyz.openbmc_project.MCTP.Binding.SMBus"},
-                              {BindingType::mctpOverPcieVdm,
-                               "xyz.openbmc_project.MCTP.Binding.PCIe"},
-                              {BindingType::mctpOverUsb, ""},
-                              {BindingType::mctpOverKcs, ""},
-                              {BindingType::mctpOverSerial, ""},
-                              {BindingType::mctpOverI3C, "xyz.openbmc_project.MCTP.Binding.I3C"},
-                              {BindingType::vendorDefined, ""}};
+        bindingToInterface = {
+            {BindingType::mctpOverSmBus,
+             "xyz.openbmc_project.MCTP.Binding.SMBus"},
+            {BindingType::mctpOverPcieVdm,
+             "xyz.openbmc_project.MCTP.Binding.PCIe"},
+            {BindingType::mctpOverUsb, ""},
+            {BindingType::mctpOverKcs, ""},
+            {BindingType::mctpOverSerial, ""},
+            {BindingType::mctpOverI3C, "xyz.openbmc_project.MCTP.Binding.I3C"},
+            {BindingType::vendorDefined, ""}};
 
   private:
     std::unique_ptr<MCTPImpl> pimpl;

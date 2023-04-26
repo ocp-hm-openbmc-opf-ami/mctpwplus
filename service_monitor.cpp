@@ -25,6 +25,7 @@
 #include <sdbusplus/bus/match.hpp>
 
 using mctpw::internal::DeleteServiceCallback;
+using mctpw::internal::EIDChangeCallback;
 using mctpw::internal::NewServiceCallback;
 
 template <typename T1, typename T2>
@@ -69,4 +70,44 @@ void DeleteServiceCallback::operator()(sdbusplus::message::message& msg)
 
     parent.unRegisterListeners(msg.get_sender());
     parent.matchedBuses.erase(msg.get_sender());
+}
+
+EIDChangeCallback::EIDChangeCallback(mctpw::MCTPImpl& mctpImpl) :
+    parent(mctpImpl)
+{
+}
+
+void EIDChangeCallback::operator()(sdbusplus::message::message& msg)
+{
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        (std::string("EIDChange callback signal in ") + msg.get_sender())
+            .c_str());
+    if (!this->parent.eidChangeCallback)
+    {
+        return;
+    }
+    try
+    {
+        std::string baseInterface;
+        boost::container::flat_map<std::string, MctpPropertiesVariantType>
+            propertiesChanged;
+
+        msg.read(baseInterface, propertiesChanged);
+
+        auto it = propertiesChanged.find("Eid");
+        if (it != propertiesChanged.end())
+        {
+            OwnEIDChange evt;
+            OwnEIDChange::EIDChangeData data;
+            data.eid = std::get<uint8_t>(it->second);
+            data.service = msg.get_sender();
+            evt.context = &data;
+            this->parent.eidChangeCallback(evt);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::INFO>(
+            (std::string("EID change event: ") + e.what()).c_str());
+    }
 }
