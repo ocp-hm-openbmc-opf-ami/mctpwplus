@@ -407,16 +407,16 @@ class MCTPWrapper
 
     /**
      * @brief Get own eid on each available mctp services
-     * 
+     *
      * Multiple mctp services will be running in the system. This method
-     * will invoke the callback for each mctp service with its own eid. 
+     * will invoke the callback for each mctp service with its own eid.
      * Also whenever the eid changes on a service the same callback will
      * be executed with the new eid and related info.
-     * 
+     *
      * @param callback For each own eid available among mctp services this
      * callback will be executed
      * @return void
-    */
+     */
     void getOwnEIDs(OwnEIDChangeCallback callback);
 
     /// MCTP Configuration to store message type and vendor defined properties

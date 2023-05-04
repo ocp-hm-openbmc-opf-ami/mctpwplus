@@ -843,7 +843,8 @@ void MCTPImpl::listenForRemovedMctpServices()
 static eid_t readOwnEID(const std::string& serviceName,
                         sdbusplus::asio::connection& connection)
 {
-    phosphor::logging::log<phosphor::logging::level::WARNING>(("GetOwnEIDs reading: " + serviceName).c_str());
+    phosphor::logging::log<phosphor::logging::level::WARNING>(
+        ("GetOwnEIDs reading: " + serviceName).c_str());
     static const std::string baseInterface = "xyz.openbmc_project.MCTP.Base";
     static const std::string eidProperty = "Eid";
     return readPropertyValue<eid_t>(connection, serviceName,

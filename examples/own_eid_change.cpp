@@ -68,8 +68,8 @@ int main(int argc, char* argv[])
     {
         if (vdmType)
         {
-            config = mctpw::MCTPConfiguration(msgType, bindingType, vendorId, vdmType,
-                                       vdmMask);
+            config = mctpw::MCTPConfiguration(msgType, bindingType, vendorId,
+                                              vdmType, vdmMask);
         }
         else
         {
@@ -89,20 +89,24 @@ int main(int argc, char* argv[])
             io.stop();
         });
 
-    boost::asio::spawn(io, [&io, &config, &ctrlC](boost::asio::yield_context yield) {
-        mctpw::MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
-        mctpWrapper.detectMctpEndpoints(yield);
+    boost::asio::spawn(
+        io, [&io, &config, &ctrlC](boost::asio::yield_context yield) {
+            mctpw::MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
+            mctpWrapper.detectMctpEndpoints(yield);
 
-        mctpWrapper.getOwnEIDs([](mctpw::OwnEIDChange eidChange) {
-            mctpw::OwnEIDChange::EIDChangeData* eidChangeData = reinterpret_cast<mctpw::OwnEIDChange::EIDChangeData*>(eidChange.context);
-            std::cerr << "EID " << static_cast<int>(eidChangeData->eid) << " on " << eidChangeData->service;
+            mctpWrapper.getOwnEIDs([](mctpw::OwnEIDChange eidChange) {
+                mctpw::OwnEIDChange::EIDChangeData* eidChangeData =
+                    reinterpret_cast<mctpw::OwnEIDChange::EIDChangeData*>(
+                        eidChange.context);
+                std::cerr << "EID " << static_cast<int>(eidChangeData->eid)
+                          << " on " << eidChangeData->service;
+            });
+
+            boost::asio::deadline_timer timer(io);
+            timer.expires_from_now(boost::posix_time::seconds(10));
+            boost::system::error_code ec;
+            timer.async_wait(yield[ec]);
         });
-
-        boost::asio::deadline_timer timer(io);
-        timer.expires_from_now(boost::posix_time::seconds(10));
-        boost::system::error_code ec;
-        timer.async_wait(yield[ec]);
-    });
 
     io.run();
     return 0;
