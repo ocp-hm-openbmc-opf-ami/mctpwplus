@@ -33,7 +33,7 @@ systemd_system_unit_dir = systemd.get_pkgconfig_variable(
 
 threads = dependency('threads')
 
-src_files = ['dbus_cb.cpp', 'mctp_wrapper.cpp', 'mctp_impl.cpp', 'service_monitor.cpp']
+src_files = ['mctp_wrapper.cpp', 'mctp_impl.cpp']
 no_thread_flags = '-DBOOST_ASIO_DISABLE_THREADS'
 no_thread_dep = declare_dependency(compile_args: no_thread_flags)
 

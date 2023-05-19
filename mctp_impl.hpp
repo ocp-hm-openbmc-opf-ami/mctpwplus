@@ -259,12 +259,6 @@ class MCTPImpl
     void getOwnEIDs(OwnEIDChangeCallback callback);
 
   private:
-    std::unordered_map<
-        std::string, std::vector<std::unique_ptr<sdbusplus::bus::match::match>>>
-        matchers;
-    std::unordered_map<std::string,
-                       std::unique_ptr<sdbusplus::bus::match::match>>
-        monitorServiceMatchers;
     EndpointMap endpointMap;
     std::unordered_set<std::string> matchedBuses;
     std::vector<VersionFields> responderVersions;
@@ -278,10 +272,24 @@ class MCTPImpl
     // Get bus id from servicename. Example: Returns 2 if device path is
     // /dev/i2c-2
     int getBusId(const std::string& serviceName);
-    void listenForNewMctpServices();
-    void listenForRemovedMctpServices();
+
+    void listenForMCTPChanges();
+    std::unique_ptr<sdbusplus::bus::match::match> mctpChangesWatch{};
+    void onMCTPEvent(sdbusplus::message::message& msg);
+    void onNewInterface(sdbusplus::message::message& msg);
+    void onInterfaceRemoved(sdbusplus::message::message& msg);
+    void onMessageReceived(sdbusplus::message::message& msg);
+    void onPropertiesChanged(sdbusplus::message::message& msg);
+    void onNewService(const std::string& serviceName);
+    void onNewEID(const std::string& serviceName, eid_t eid);
+    void onOwnEIDChange(std::string serviceName, eid_t eid);
+    void onEIDRemoved(eid_t eid);
+    void addUniqueNameToMatchedServices(const std::string& serviceName, boost::asio::yield_context yield);
+    
     void registerListeners(const std::string& serviceName);
     void unRegisterListeners(const std::string& serviceName);
+
+    void triggerGetOwnEID(const std::string& serviceName);
     boost::system::error_code registerResponder(const std::string& serviceName);
     friend struct internal::NewServiceCallback;
     friend struct internal::DeleteServiceCallback;

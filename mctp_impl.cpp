@@ -16,9 +16,6 @@
 
 #include "mctp_impl.hpp"
 
-#include "dbus_cb.hpp"
-#include "service_monitor.hpp"
-
 #include <boost/algorithm/string.hpp>
 #include <boost/container/flat_map.hpp>
 #include <phosphor-logging/log.hpp>
@@ -51,29 +48,6 @@ static auto
     std::variant<Property> v;
     reply.read(v);
     return std::get<Property>(v);
-}
-
-static auto registerSignalHandler(sdbusplus::bus::bus& bus,
-                                  sd_bus_message_handler_t handler, void* ctx,
-                                  const std::string& interface,
-                                  const std::string& name,
-                                  const std::string& sender,
-                                  const std::string& arg0)
-{
-    std::string matcherString = sdbusplus::bus::match::rules::type::signal();
-
-    matcherString += sdbusplus::bus::match::rules::interface(interface);
-    matcherString += sdbusplus::bus::match::rules::member(name);
-    if (!sender.empty())
-    {
-        matcherString += sdbusplus::bus::match::rules::sender(sender);
-    }
-    if (!arg0.empty())
-    {
-        matcherString += sdbusplus::bus::match::rules::argN(0, arg0);
-    }
-    return std::make_unique<sdbusplus::bus::match::match>(bus, matcherString,
-                                                          handler, ctx);
 }
 
 namespace mctpw
@@ -184,75 +158,32 @@ int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
     return status;
 }
 
-void MCTPImpl::unRegisterListeners(const std::string& serviceName)
-{
-    auto itr = matchers.find(serviceName);
-    if (itr != matchers.end())
-    {
-        matchers.erase(itr);
-        phosphor::logging::log<phosphor::logging::level::INFO>(
-            (std::string("unRegisterListeners: ") + serviceName).c_str());
-    }
-    else
-    {
-        phosphor::logging::log<phosphor::logging::level::INFO>(
-            (std::string("unRegisterListeners: ") + serviceName +
-             " not present")
-                .c_str());
-    }
-}
-
-void MCTPImpl::registerListeners(const std::string& serviceName)
-{
-    std::vector<std::unique_ptr<sdbusplus::bus::match::match>> signalMatchers;
-    signalMatchers.push_back(registerSignalHandler(
-        static_cast<sdbusplus::bus::bus&>(*connection),
-        mctpw::onPropertiesChanged, static_cast<void*>(this),
-        "org.freedesktop.DBus.Properties", "PropertiesChanged", serviceName,
-        ""));
-    signalMatchers.push_back(registerSignalHandler(
-        static_cast<sdbusplus::bus::bus&>(*connection),
-        mctpw::onInterfacesAdded, static_cast<void*>(this),
-        "org.freedesktop.DBus.ObjectManager", "InterfacesAdded", serviceName,
-        ""));
-    signalMatchers.push_back(registerSignalHandler(
-        static_cast<sdbusplus::bus::bus&>(*connection),
-        mctpw::onInterfacesRemoved, static_cast<void*>(this),
-        "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved", serviceName,
-        ""));
-    signalMatchers.push_back(registerSignalHandler(
-        static_cast<sdbusplus::bus::bus&>(*connection),
-        mctpw::onMessageReceivedSignal, static_cast<void*>(this),
-        "xyz.openbmc_project.MCTP.Base", "MessageReceivedSignal", serviceName,
-        ""));
-    std::string eidWatcher =
-        "type='signal',member='PropertiesChanged',path='/xyz/openbmc_project/"
-        "mctp',arg0='xyz.openbmc_project.MCTP.Base',sender='" +
-        serviceName + "'";
-    signalMatchers.push_back(std::make_unique<sdbusplus::bus::match::match>(
-        *connection, eidWatcher, mctpw::internal::EIDChangeCallback(*this)));
-    // Saving all matchers using key as servicename
-    matchers.emplace(serviceName, std::move(signalMatchers));
-}
-
 boost::system::error_code
     MCTPImpl::detectMctpEndpoints(boost::asio::yield_context yield)
 {
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        "Detecting mctp endpoints");
+
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
     auto bus_vector = findBusByBindingType(yield);
     if (bus_vector)
     {
         endpointMap = buildMatchingEndpointMap(yield, bus_vector.value());
-        for (auto& [busId, serviceName] : bus_vector.value())
-        {
-            registerListeners(serviceName);
-        }
     }
 
-    listenForNewMctpServices();
-    listenForRemovedMctpServices();
+    if (this->eidChangeCallback)
+    {
+        // getOwnEID was called before. Retrigger the events
+        this->getOwnEIDs(this->eidChangeCallback);
+    }
 
+    listenForMCTPChanges();
+
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        ("Detecting mctp endpoints completed. Found " +
+         std::to_string(endpointMap.size()))
+            .c_str());
     return ec;
 }
 
@@ -315,6 +246,26 @@ int MCTPImpl::getBusId(const std::string& serviceName)
     }
 }
 
+void MCTPImpl::addUniqueNameToMatchedServices(const std::string& serviceName,
+                                              boost::asio::yield_context yield)
+{
+    boost::system::error_code ec;
+    std::string uniqueName = connection->yield_method_call<std::string>(
+        yield, ec, "org.freedesktop.DBus", "/org/freedesktop/DBus",
+        "org.freedesktop.DBus", "GetNameOwner", serviceName.c_str());
+
+    if (ec)
+    {
+        std::string errMsg = std::string("GetUniqueName unsuccesful for ") +
+                             serviceName + ". " + ec.message();
+        phosphor::logging::log<phosphor::logging::level::WARNING>(
+            errMsg.c_str());
+        uniqueName = serviceName;
+    }
+
+    this->matchedBuses.emplace(uniqueName);
+}
+
 std::optional<std::vector<std::pair<unsigned, std::string>>>
     MCTPImpl::findBusByBindingType(boost::asio::yield_context yield)
 {
@@ -347,7 +298,7 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
             {
                 int bus = this->getBusId(service);
                 buses.emplace_back(bus, service);
-                matchedBuses.emplace(service);
+                addUniqueNameToMatchedServices(service, yield);
             }
             catch (const std::exception& e)
             {
@@ -811,40 +762,9 @@ std::optional<std::string> MCTPImpl::getDeviceLocation(const eid_t eid)
     }
 }
 
-void MCTPImpl::listenForNewMctpServices()
-{
-    static const std::string matchRule =
-        "type='signal',member='InterfacesAdded',interface='org.freedesktop."
-        "DBus.ObjectManager',path='/xyz/openbmc_project/"
-        "mctp'";
-    this->monitorServiceMatchers.emplace(
-        "InterfacesAdded",
-        std::make_unique<sdbusplus::bus::match::match>(
-            *connection, matchRule, internal::NewServiceCallback(*this)));
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
-        "Wrapper: Listening for new MCTP services");
-}
-
-void MCTPImpl::listenForRemovedMctpServices()
-{
-    static const std::string rule =
-        "type='signal',member='InterfacesRemoved',interface='org.freedesktop."
-        "DBus.ObjectManager',path='/xyz/openbmc_project/"
-        "mctp'";
-    this->monitorServiceMatchers.emplace(
-        "InterfacesRemoved",
-        std::make_unique<sdbusplus::bus::match::match>(
-            *connection, rule, internal::DeleteServiceCallback(*this)));
-
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
-        "Wrapper: Listening for Removed MCTP services");
-}
-
 static eid_t readOwnEID(const std::string& serviceName,
                         sdbusplus::asio::connection& connection)
 {
-    phosphor::logging::log<phosphor::logging::level::WARNING>(
-        ("GetOwnEIDs reading: " + serviceName).c_str());
     static const std::string baseInterface = "xyz.openbmc_project.MCTP.Base";
     static const std::string eidProperty = "Eid";
     return readPropertyValue<eid_t>(connection, serviceName,
@@ -852,35 +772,336 @@ static eid_t readOwnEID(const std::string& serviceName,
                                     eidProperty);
 }
 
+void MCTPImpl::triggerGetOwnEID(const std::string& serviceName)
+{
+    if (!this->eidChangeCallback)
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "GetOwnEIDs callback is empty while trying to trigger");
+        return;
+    }
+
+    try
+    {
+        eid_t eid = readOwnEID(serviceName, *this->connection);
+        OwnEIDChange evt;
+        OwnEIDChange::EIDChangeData data;
+        data.eid = eid;
+        data.service = serviceName;
+        evt.context = &data;
+        this->eidChangeCallback(evt);
+    }
+    catch (const std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::WARNING>(
+            ("Wrapper: Error reading eid from " + serviceName + ". " + e.what())
+                .c_str());
+    }
+}
+
 void MCTPImpl::getOwnEIDs(OwnEIDChangeCallback callback)
 {
     if (!callback)
     {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "GetOwnEIDs callback is empty");
         return;
     }
 
     this->eidChangeCallback = callback;
 
-    for (const auto& [service, match] : matchers)
+    auto matchedBusesCopy = matchedBuses;
+    for (const auto& service : matchedBusesCopy)
     {
-        phosphor::logging::log<phosphor::logging::level::WARNING>(
-            ("GetOwnEIDs: " + service).c_str());
-        try
+        triggerGetOwnEID(service);
+    }
+}
+
+static eid_t getEIDFromPath(const sdbusplus::message::object_path& objectPath)
+{
+    try
+    {
+        auto slashLoc = objectPath.str.find_last_of('/');
+        if (objectPath.str.npos == slashLoc)
         {
-            eid_t eid = readOwnEID(service, *this->connection);
-            OwnEIDChange evt;
-            OwnEIDChange::EIDChangeData data;
-            data.eid = eid;
-            data.service = service;
-            evt.context = &data;
-            this->eidChangeCallback(evt);
+            throw std::runtime_error("Invalid device path");
         }
-        catch (const std::exception& e)
+        auto strDeviceId = objectPath.str.substr(slashLoc + 1);
+        return static_cast<eid_t>(std::stoi(strDeviceId));
+    }
+    catch (const std::exception& e)
+    {
+        throw std::runtime_error(std::string("Error getting eid from ") +
+                                 objectPath.str + ". " + e.what());
+    }
+}
+
+void MCTPImpl::listenForMCTPChanges()
+{
+    static const std::string rule =
+        "type='signal',path='/xyz/openbmc_project/mctp'";
+
+    this->mctpChangesWatch = std::make_unique<sdbusplus::bus::match::match>(
+        *connection, rule,
+        std::bind(&MCTPImpl::onMCTPEvent, this, std::placeholders::_1));
+
+    phosphor::logging::log<phosphor::logging::level::INFO>(
+        "Wrapper: Listening for all MCTP related signals");
+}
+
+void MCTPImpl::onNewService(const std::string& serviceName)
+{
+    phosphor::logging::log<phosphor::logging::level::INFO>(
+        (std::string("New service ") + serviceName).c_str());
+    matchedBuses.emplace(serviceName);
+    registerResponder(serviceName);
+
+    triggerGetOwnEID(serviceName);
+}
+
+void MCTPImpl::onNewEID(const std::string& serviceName, eid_t eid)
+{
+    if (!this->networkChangeCallback)
+    {
+        return;
+    }
+    this->endpointMap.emplace(eid, std::make_pair(0, serviceName));
+    boost::asio::spawn(connection->get_io_context(),
+                       [this, eid](boost::asio::yield_context yield) {
+                           mctpw::Event event;
+                           event.eid = eid;
+                           event.type = mctpw::Event::EventType::deviceAdded;
+                           this->networkChangeCallback(this, event, yield);
+                       });
+}
+
+void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
+{
+    DictType<std::string, DictType<std::string, MctpPropertiesVariantType>>
+        values;
+    sdbusplus::message::object_path objectPath;
+
+    msg.read(objectPath, values);
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        (std::string("Interface added on ") + objectPath.str).c_str());
+
+    if (objectPath.str == "/xyz/openbmc_project/mctp")
+    {
+        // Interface added on base object. Means new service.
+        if (values.end() !=
+            values.find(
+                mctpw::MCTPWrapper::bindingToInterface.at(config.bindingType)))
         {
-            phosphor::logging::log<phosphor::logging::level::WARNING>(
-                ("Wrapper: Error reading eid from " + service + ". " + e.what())
+            this->onNewService(msg.get_sender());
+        }
+        return;
+    }
+
+    if (!matchedBuses.contains(msg.get_sender()))
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            (std::string("Ignoring service not in interset: ") +
+             msg.get_sender())
+                .c_str());
+        return;
+    }
+
+    if (objectPath.str.starts_with("/xyz/openbmc_project/mctp/device/"))
+    {
+        // Interface added on base endpoint object. Means new EID
+        auto itSupportedMsgTypes =
+            values.find("xyz.openbmc_project.MCTP.SupportedMessageTypes");
+        if (values.end() != itSupportedMsgTypes)
+        {
+            auto newEid = getEIDFromPath(objectPath);
+            const auto& properties = itSupportedMsgTypes->second;
+            const auto& registeredMsgType = properties.at(
+                mctpw::MCTPImpl::msgTypeToPropertyName.at(config.type));
+            if (std::get<bool>(registeredMsgType))
+            {
+                this->onNewEID(msg.get_sender(), newEid);
+            }
+        }
+    }
+}
+
+void MCTPImpl::onEIDRemoved(eid_t eid)
+{
+    if (eraseDevice(eid) == 1)
+    {
+        if (!this->networkChangeCallback)
+        {
+            return;
+        }
+        boost::asio::spawn(connection->get_io_context(),
+                           [this, eid](boost::asio::yield_context yield) {
+                               mctpw::Event event;
+                               event.type =
+                                   mctpw::Event::EventType::deviceRemoved;
+                               event.eid = eid;
+                               this->networkChangeCallback(this, event, yield);
+                           });
+    }
+    else
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            ("Removed device is not in endpoint map " + std::to_string(eid))
+                .c_str());
+    }
+}
+
+void MCTPImpl::onInterfaceRemoved(sdbusplus::message::message& msg)
+{
+    sdbusplus::message::object_path objectPath;
+    std::vector<std::string> interfaces;
+    msg.read(objectPath, interfaces);
+
+    if (objectPath.parent_path() == "/xyz/openbmc_project/mctp/device")
+    {
+        if (std::find(interfaces.begin(), interfaces.end(),
+                      "xyz.openbmc_project.MCTP.SupportedMessageTypes") !=
+            interfaces.end())
+        {
+            auto eid = getEIDFromPath(objectPath);
+            this->onEIDRemoved(eid);
+        }
+    }
+    else if (objectPath.str == "/xyz/openbmc_project/mctp")
+    {
+        if (std::find(interfaces.begin(), interfaces.end(),
+                      "xyz.openbmc_project.MCTP.Base") != interfaces.end())
+        {
+            phosphor::logging::log<phosphor::logging::level::INFO>(
+                ("Removing mctp service " + std::string(msg.get_sender()))
                     .c_str());
+            this->matchedBuses.erase(msg.get_sender());
+            for (auto& [eid, service] : this->endpointMap)
+            {
+                if (service.second == msg.get_sender())
+                {
+                    phosphor::logging::log<phosphor::logging::level::ERR>(
+                        (std::string("EID entry invalid for : ") +
+                         msg.get_sender())
+                            .c_str());
+                }
+            }
         }
+    }
+}
+
+void MCTPImpl::onMessageReceived(sdbusplus::message::message& msg)
+{
+    if (!this->receiveCallback)
+    {
+        return;
+    }
+
+    uint8_t messageType = 0;
+    uint8_t srcEid = 0;
+    uint8_t msgTag = 0;
+    bool tagOwner = false;
+    std::vector<uint8_t> payload;
+
+    msg.read(messageType, srcEid, msgTag, tagOwner, payload);
+
+    if (static_cast<MessageType>(messageType) != config.type)
+    {
+        return;
+    }
+
+    if (static_cast<MessageType>(messageType) == MessageType::vdpci)
+    {
+        struct VendorHeader
+        {
+            uint8_t vdpciMessageType;
+            uint16_t vendorId;
+            uint16_t intelVendorMessageId;
+        } __attribute__((packed));
+        VendorHeader* vendorHdr =
+            reinterpret_cast<VendorHeader*>(payload.data());
+
+        if (!config.vendorId || !config.vendorMessageType ||
+            (vendorHdr->vendorId != config.vendorId) ||
+            ((vendorHdr->intelVendorMessageId &
+              config.vendorMessageType->mask) !=
+             (config.vendorMessageType->value &
+              config.vendorMessageType->mask)))
+        {
+            return;
+        }
+    }
+    this->receiveCallback(this, srcEid, tagOwner, msgTag, payload, 0);
+}
+
+void MCTPImpl::onOwnEIDChange(std::string serviceName, eid_t eid)
+{
+    OwnEIDChange evt;
+    OwnEIDChange::EIDChangeData data;
+    data.eid = eid;
+    data.service = std::move(serviceName);
+    evt.context = &data;
+    if (this->eidChangeCallback)
+    {
+        this->eidChangeCallback(evt);
+    }
+}
+
+void MCTPImpl::onPropertiesChanged(sdbusplus::message::message& msg)
+{
+    std::string intfName;
+    boost::container::flat_map<std::string, MctpPropertiesVariantType>
+        propertiesChanged;
+
+    msg.read(intfName, propertiesChanged);
+    auto it = propertiesChanged.find("Eid");
+
+    if (this->eidChangeCallback &&
+        intfName == "xyz.openbmc_project.MCTP.Base" &&
+        it != propertiesChanged.end())
+    {
+        this->onOwnEIDChange(msg.get_sender(), std::get<uint8_t>(it->second));
+    }
+
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        (std::string("Property change on ") + intfName).c_str());
+}
+
+void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
+{
+    static const std::string intfAdded = "InterfacesAdded";
+    static const std::string intfRemoved = "InterfacesRemoved";
+    static const std::string msgReceived = "MessageReceivedSignal";
+    static const std::string propChanged = "PropertiesChanged";
+
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        (std::string("MCTP general event from ") + msg.get_sender()).c_str());
+
+    auto member = msg.get_member();
+    if (member == intfAdded)
+    {
+        this->onNewInterface(msg);
+    }
+
+    if (!matchedBuses.contains(msg.get_sender()))
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            (std::string("Ignoring service not in interset: ") +
+             msg.get_sender())
+                .c_str());
+        return;
+    }
+
+    if (member == intfRemoved)
+    {
+        this->onInterfaceRemoved(msg);
+    }
+    else if (member == msgReceived)
+    {
+        this->onMessageReceived(msg);
+    }
+    else if (member == propChanged)
+    {
+        this->onPropertiesChanged(msg);
     }
 }
 

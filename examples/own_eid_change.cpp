@@ -24,6 +24,11 @@
 using mctpw::BindingType;
 using mctpw::MessageType;
 
+static void onDeviceUpdate(void*, const mctpw::Event&, boost::asio::yield_context&)
+{
+    std::cout << "Network reconfiguration_callback." << std::endl;
+}
+
 int main(int argc, char* argv[])
 {
     CLI::App app("MCTP Device Manager");
@@ -91,7 +96,7 @@ int main(int argc, char* argv[])
 
     boost::asio::spawn(
         io, [&io, &config, &ctrlC](boost::asio::yield_context yield) {
-            mctpw::MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
+            mctpw::MCTPWrapper mctpWrapper(io, config, onDeviceUpdate, nullptr);
             mctpWrapper.detectMctpEndpoints(yield);
 
             mctpWrapper.getOwnEIDs([](mctpw::OwnEIDChange eidChange) {
@@ -99,11 +104,11 @@ int main(int argc, char* argv[])
                     reinterpret_cast<mctpw::OwnEIDChange::EIDChangeData*>(
                         eidChange.context);
                 std::cerr << "EID " << static_cast<int>(eidChangeData->eid)
-                          << " on " << eidChangeData->service;
+                          << " on " << eidChangeData->service << '\n';
             });
 
             boost::asio::deadline_timer timer(io);
-            timer.expires_from_now(boost::posix_time::seconds(10));
+            timer.expires_from_now(boost::posix_time::minutes(10));
             boost::system::error_code ec;
             timer.async_wait(yield[ec]);
         });
