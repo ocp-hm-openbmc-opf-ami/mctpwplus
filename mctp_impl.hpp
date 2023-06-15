@@ -33,7 +33,6 @@
 namespace mctpw
 {
 /// MCTP Endpoint Id
-using eid_t = uint8_t;
 using ByteArray = std::vector<uint8_t>;
 
 namespace internal
@@ -80,22 +79,21 @@ class MCTPImpl
 
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
-    /* Endpoint map entry: eid_t,pair(bus,service) */
-    using EndpointMap =
-        std::unordered_map<uint8_t, std::pair<unsigned, std::string>>;
+
+    /* Endpoint map entry: DeviceID,pair(bus,service) */
+    using EndpointMapExtended = MCTPWrapper::EndpointMapExtended;
+
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
-    using ReconfigurationCallback = std::function<void(
-        void*, const Event&, boost::asio::yield_context& yield)>;
-    using ReceiveMessageCallback =
-        std::function<void(void*, eid_t, bool, uint8_t, const ByteArray&, int)>;
+
     std::shared_ptr<sdbusplus::asio::connection> connection;
     mctpw::MCTPConfiguration config{};
     /// Callback to be executed when a network change occurs
     ReconfigurationCallback networkChangeCallback = nullptr;
     /// Callback to be executed when a MCTP message received
     ReceiveMessageCallback receiveCallback = nullptr;
+    ExtendedReceiveMessageCallback extReceiveCallback = nullptr;
     OwnEIDChangeCallback eidChangeCallback;
 
     static const inline std::unordered_map<MessageType, const std::string>
@@ -129,9 +127,9 @@ class MCTPImpl
     /**
      * @brief Get a reference to internaly maintained EndpointMap
      *
-     * @return const EndpointMap&
+     * @return const EndpointMapExtended&
      */
-    inline const EndpointMap& getEndpointMap() const
+    inline const EndpointMapExtended& getEndpointMap() const
     {
         return this->endpointMap;
     }
@@ -140,38 +138,38 @@ class MCTPImpl
      * @brief Trigger MCTP device discovery
      *
      */
-    void triggerMCTPDeviceDiscovery(const eid_t dstEId);
+    void triggerMCTPDeviceDiscovery(const DeviceID devID);
 
     /**
      * @brief Reserve bandwidth for EID
      *
      * @param yield Boost yield_context to use on dbus call
-     * @param dstEId Destination MCTP Endpoint ID
+     * @param dstEId Destination MCTP Device ID
      * @param timeout reserve bandwidth timeout
      * @return dbus send method call return value
      */
-    int reserveBandwidth(boost::asio::yield_context yield, const eid_t dstEId,
+    int reserveBandwidth(boost::asio::yield_context yield, const DeviceID devID,
                          const uint16_t timeout);
 
     /**
      * @brief Release bandwidth for EID
      *
      * @param yield Boost yield_context to use on dbus call
-     * @param dstEId Destination MCTP Endpoint ID
+     * @param dstEId Destination MCTP Device ID
      * @return dbus send method call return value
      */
-    int releaseBandwidth(boost::asio::yield_context yield, const eid_t dstEId);
+    int releaseBandwidth(boost::asio::yield_context yield, const DeviceID devID);
 
     /**
      * @brief Send request to dstEId and receive response asynchronously in
      * receiveCb
      *
      * @param receiveCb Callback to be executed when response is ready
-     * @param dstEId Destination MCTP Endpoint ID
+     * @param dstEId Destination MCTP Device ID
      * @param request MCTP request byte array
      * @param timeout MCTP receive timeout
      */
-    void sendReceiveAsync(ReceiveCallback receiveCb, eid_t dstEId,
+    void sendReceiveAsync(ReceiveCallback receiveCb, DeviceID devID,
                           const ByteArray& request,
                           std::chrono::milliseconds timeout);
 
@@ -179,28 +177,28 @@ class MCTPImpl
      * @brief Send request to dstEId and receive response using yield_context
      *
      * @param yield Boost yield_context to use on dbus call
-     * @param dstEId Destination MCTP Endpoint ID
+     * @param dstEId Destination MCTP Device ID
      * @param request MCTP request byte array
      * @param timeout MCTP receive timeout
      * @return std::pair<boost::system::error_code, ByteArray> Pair of boost
      * error code and response byte array
      */
     std::pair<boost::system::error_code, ByteArray>
-        sendReceiveYield(boost::asio::yield_context yield, eid_t dstEId,
+        sendReceiveYield(boost::asio::yield_context yield, DeviceID devID,
                          const ByteArray& request,
                          std::chrono::milliseconds timeout);
     /**
      * @brief Send request to dstEId and receive response using blocked
      * calls     *
      * @param yield Boost yield_context to use on dbus call
-     * @param dstEId Destination MCTP Endpoint ID
+     * @param dstEId Destination MCTP Device ID
      * @param request MCTP request byte array
      * @param timeout MCTP receive timeout
      * @return std::pair<boost::system::error_code, ByteArray> Pair of boost
      * error code and response byte array
      */
     std::pair<boost::system::error_code, ByteArray>
-        sendReceiveBlocked(eid_t dstEId, const ByteArray& request,
+        sendReceiveBlocked(DeviceID devID, const ByteArray& request,
                            std::chrono::milliseconds timeout);
 
     /**
@@ -225,13 +223,13 @@ class MCTPImpl
      *
      * @param callback Callback that will be invoked with status of send
      * operation
-     * @param dstEId Destination MCTP Endpoint ID
+     * @param dstEId Destination MCTP Device ID
      * @param msgTag MCTP message tag value
      * @param tagOwner MCTP tag owner bit. Identifies whether the message tag
      * was originated by the endpoint that is the source of the message
      * @param request MCTP request byte array
      */
-    void sendAsync(const SendCallback& callback, const eid_t dstEId,
+    void sendAsync(const SendCallback& callback, const DeviceID devID,
                    const uint8_t msgTag, const bool tagOwner,
                    const ByteArray& request);
 
@@ -239,7 +237,7 @@ class MCTPImpl
      * @brief Send MCTP request to dstEId and receive status of send operation
      *
      * @param yield boost yiled_context object to yield on dbus calls
-     * @param dstEId Destination MCTP Endpoint ID
+     * @param dstEId Destination MCTP Device ID
      * @param msgTag MCTP message tag value
      * @param tagOwner MCTP tag owner bit. Identifies whether the message tag
      * was originated by the endpoint that is the source of the message
@@ -248,25 +246,26 @@ class MCTPImpl
      * error_code and dbus send method call return value
      */
     std::pair<boost::system::error_code, int>
-        sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
+        sendYield(boost::asio::yield_context& yield, const DeviceID devID,
                   const uint8_t msgTag, const bool tagOwner,
                   const ByteArray& request);
     void addToEidMap(boost::asio::yield_context yield,
                      const std::string& serviceName/*, uint16_t vid,
                      uint16_t vmsgType*/);
-    size_t eraseDevice(eid_t eid);
-    std::optional<std::string> getDeviceLocation(const eid_t eid);
+    size_t eraseDevice(DeviceID eid);
+    std::optional<std::string> getDeviceLocation(const DeviceID eid);
     void getOwnEIDs(OwnEIDChangeCallback callback);
+    void setExtendedReceiveCallback(ExtendedReceiveMessageCallback callback);
 
   private:
-    EndpointMap endpointMap;
+    EndpointMapExtended endpointMap;
     std::unordered_set<std::string> matchedBuses;
     std::vector<VersionFields> responderVersions;
     // Get list of pair<bus, service_name_string> which expose mctp object
     std::optional<std::vector<std::pair<unsigned, std::string>>>
         findBusByBindingType(boost::asio::yield_context yield);
     /* Return format: map<Eid, pair<bus, service_name_string>> */
-    EndpointMap buildMatchingEndpointMap(
+    EndpointMapExtended buildMatchingEndpointMap(
         boost::asio::yield_context yield,
         std::vector<std::pair<unsigned, std::string>>& buses);
     // Get bus id from servicename. Example: Returns 2 if device path is
@@ -281,9 +280,9 @@ class MCTPImpl
     void onMessageReceived(sdbusplus::message::message& msg);
     void onPropertiesChanged(sdbusplus::message::message& msg);
     void onNewService(const std::string& serviceName);
-    void onNewEID(const std::string& serviceName, eid_t eid);
+    void onNewEID(const std::string& serviceName, DeviceID eid);
     void onOwnEIDChange(std::string serviceName, eid_t eid);
-    void onEIDRemoved(eid_t eid);
+    void onEIDRemoved(DeviceID eid);
     void addUniqueNameToMatchedServices(const std::string& serviceName, boost::asio::yield_context yield);
     
     void registerListeners(const std::string& serviceName);
@@ -293,5 +292,11 @@ class MCTPImpl
     boost::system::error_code registerResponder(const std::string& serviceName);
     friend struct internal::NewServiceCallback;
     friend struct internal::DeleteServiceCallback;
+
+    std::unordered_map<std::string, uint8_t> networkIDCache;
+    uint8_t getNetworkID(const std::string& serviceName);
+    DeviceID
+        getDeviceIDFromPath(const sdbusplus::message::object_path& objectPath,
+                            const std::string& serviceName);
 };
 } // namespace mctpw

@@ -22,10 +22,14 @@
 int main(int argc, char* argv[])
 {
     constexpr uint8_t defaultEId = 8;
+
     uint8_t eid =
         argc < 2 ? defaultEId : static_cast<uint8_t>(std::stoi(argv[1]));
+    uint8_t networkId =
+        argc < 3 ? 1 : static_cast<uint8_t>(std::stoi(argv[2]));
     using namespace mctpw;
     boost::asio::io_context io;
+    mctpw::DeviceID deviceId(eid, networkId);
 
     boost::asio::signal_set signals(io, SIGINT, SIGTERM);
     signals.async_wait(
@@ -52,31 +56,31 @@ int main(int argc, char* argv[])
         }
     };
 
-    auto registerCB = [eid, recvCB, &mctpWrapper,
+    auto registerCB = [deviceId, recvCB, &mctpWrapper,
                        &io](boost::system::error_code ec, void*) {
         if (ec)
         {
             std::cout << "Error: " << ec.message() << std::endl;
             return;
         }
-        auto& ep = mctpWrapper.getEndpointMap();
+        auto& ep = mctpWrapper.getEndpointMapExtended();
         for (auto& i : ep)
         {
-            std::cout << "EID:" << static_cast<unsigned>(i.first)
+            std::cout << "EID:" << static_cast<unsigned>(i.first.id)
                       << " Bus:" << i.second.first
                       << " Service:" << i.second.second << std::endl;
         }
         // GetVersion request for PLDM Base
         std::vector<uint8_t> request = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
-        mctpWrapper.sendReceiveAsync(recvCB, eid, request,
+        mctpWrapper.sendReceiveAsync(recvCB, deviceId, request,
                                      std::chrono::milliseconds(100));
         boost::asio::spawn(io, [&mctpWrapper,
-                                eid](boost::asio::yield_context yield) {
+                                deviceId](boost::asio::yield_context yield) {
             // GetUID request
             std::vector<uint8_t> request2 = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
             std::cout << "Before sendReceiveYield" << std::endl;
             auto rcvStatus = mctpWrapper.sendReceiveYield(
-                yield, eid, request2, std::chrono::milliseconds(100));
+                yield, deviceId, request2, std::chrono::milliseconds(100));
             if (rcvStatus.first)
             {
                 std::cout << "Yield Error " << rcvStatus.first.message()

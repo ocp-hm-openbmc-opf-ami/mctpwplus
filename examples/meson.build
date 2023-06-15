@@ -1,6 +1,6 @@
 fs = import('fs')
 
-cli11_dep = dependency('cli11')
+cli11_dep = dependency('CLI11')
 has_cli11 = meson.get_compiler('cpp').has_header_symbol(
     'CLI/CLI.hpp',
     'CLI::App',
