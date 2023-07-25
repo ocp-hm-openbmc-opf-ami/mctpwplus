@@ -35,7 +35,7 @@ static auto
                       const std::string& path, const std::string& interface,
                       const std::string& property)
 {
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+    phosphor::logging::log<phosphor::logging::level::INFO>(
         (std::string("Reading ") + service + " " + path + " " + interface +
          " " + property)
             .c_str());
@@ -70,7 +70,7 @@ void MCTPImpl::triggerMCTPDeviceDiscovery(const eid_t dstEId)
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             "triggerMCTPDeviceDiscovery: EID not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         return;
@@ -180,7 +180,7 @@ boost::system::error_code
 
     listenForMCTPChanges();
 
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+    phosphor::logging::log<phosphor::logging::level::INFO>(
         ("Detecting mctp endpoints completed. Found " +
          std::to_string(endpointMap.size()))
             .c_str());
@@ -523,7 +523,7 @@ boost::system::error_code
         status = registerResponder(mctpdServiceName);
         if (status != boost::system::errc::success)
         {
-            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            phosphor::logging::log<phosphor::logging::level::INFO>(
                 ("Error setting responder version in " + mctpdServiceName)
                     .c_str());
             continue;
@@ -546,7 +546,7 @@ boost::system::error_code
     auto status =
         boost::system::errc::make_error_code(boost::system::errc::success);
 
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+    phosphor::logging::log<phosphor::logging::level::INFO>(
         ("Registering responder version to service " + serviceName).c_str());
 
     bool rc = true;
@@ -622,7 +622,7 @@ std::pair<boost::system::error_code, ByteArray>
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             "SendReceiveBlocked: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         receiveResult.first =
@@ -641,7 +641,7 @@ std::pair<boost::system::error_code, ByteArray>
     auto reply = connection->call(msg);
     if (reply.is_method_error())
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             "SendReceiveBlocked: Error in method call ",
             phosphor::logging::entry("EID=%d", dstEId));
         receiveResult.first =
@@ -686,7 +686,7 @@ std::pair<boost::system::error_code, int>
     auto it = this->endpointMap.find(dstEId);
     if (this->endpointMap.end() == it)
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             "sendYield: Eid not found in end point map",
             phosphor::logging::entry("EID=%d", dstEId));
         return std::make_pair(
@@ -803,7 +803,7 @@ void MCTPImpl::getOwnEIDs(OwnEIDChangeCallback callback)
 {
     if (!callback)
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             "GetOwnEIDs callback is empty");
         return;
     }
@@ -882,7 +882,7 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
     sdbusplus::message::object_path objectPath;
 
     msg.read(objectPath, values);
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+    phosphor::logging::log<phosphor::logging::level::INFO>(
         (std::string("Interface added on ") + objectPath.str).c_str());
 
     if (objectPath.str == "/xyz/openbmc_project/mctp")
@@ -899,7 +899,7 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
 
     if (!matchedBuses.contains(msg.get_sender()))
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             (std::string("Ignoring service not in interset: ") +
              msg.get_sender())
                 .c_str());
@@ -944,7 +944,7 @@ void MCTPImpl::onEIDRemoved(eid_t eid)
     }
     else
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             ("Removed device is not in endpoint map " + std::to_string(eid))
                 .c_str());
     }
@@ -1062,7 +1062,7 @@ void MCTPImpl::onPropertiesChanged(sdbusplus::message::message& msg)
         this->onOwnEIDChange(msg.get_sender(), std::get<uint8_t>(it->second));
     }
 
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+    phosphor::logging::log<phosphor::logging::level::INFO>(
         (std::string("Property change on ") + intfName).c_str());
 }
 
@@ -1073,7 +1073,7 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
     static const std::string msgReceived = "MessageReceivedSignal";
     static const std::string propChanged = "PropertiesChanged";
 
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
+    phosphor::logging::log<phosphor::logging::level::INFO>(
         (std::string("MCTP general event from ") + msg.get_sender()).c_str());
 
     auto member = msg.get_member();
@@ -1084,7 +1084,7 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
 
     if (!matchedBuses.contains(msg.get_sender()))
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+        phosphor::logging::log<phosphor::logging::level::INFO>(
             (std::string("Ignoring service not in interset: ") +
              msg.get_sender())
                 .c_str());
