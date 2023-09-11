@@ -116,6 +116,10 @@ enum class MessageType : uint8_t
     spdm = 0x05,
     /** @brief Secure Messaging Protocol and Data Model over MCTP */
     securedMsg = 0x06,
+    /** @brief CXL FM API over MCTP */
+    cxlFmApi = 0x07,
+    /** @brief CXL CCI over MCTP */
+    cxlCci = 0x08,
     /** @brief Vendor Defined PCI */
     vdpci = 0x7E,
     /** @brief Vendor Defined IANA */
@@ -597,6 +601,8 @@ class MCTPWrapper
                                  {MessageType::nvmeMgmtMsg, "NVMeMgmtMsg"},
                                  {MessageType::spdm, "SPDM"},
                                  {MessageType::securedMsg, "SECUREDMSG"},
+                                 {MessageType::cxlFmApi, "CXLFMAPI"},
+                                 {MessageType::cxlCci, "CXLCCI"},
                                  {MessageType::vdpci, "VDPCI"},
                                  {MessageType::vdiana, "VDIANA"}};
 

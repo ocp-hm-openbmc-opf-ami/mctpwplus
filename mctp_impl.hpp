@@ -103,6 +103,8 @@ class MCTPImpl
                                  {MessageType::nvmeMgmtMsg, "NVMeMgmtMsg"},
                                  {MessageType::spdm, "SPDM"},
                                  {MessageType::securedMsg, "SECUREDMSG"},
+                                 {MessageType::cxlFmApi, "CXLFMAPI"},
+                                 {MessageType::cxlCci, "CXLCCI"},
                                  {MessageType::vdpci, "VDPCI"},
                                  {MessageType::vdiana, "VDIANA"}};
     /**

@@ -60,6 +60,7 @@ int main(int argc, char* argv[])
         {"pldm", MessageType::pldm},    {"ncsi", MessageType::ncsi},
         {"eth", MessageType::ethernet}, {"nvme", MessageType::nvmeMgmtMsg},
         {"spdm", MessageType::spdm},    {"sec", MessageType::securedMsg},
+        {"cxlfmapi", MessageType::cxlFmApi},    {"cxlcci", MessageType::cxlCci},
         {"vdpci", MessageType::vdpci},  {"vdiana", MessageType::vdiana}};
 
     app.add_option("-m,--msgtype", msgType, "MCTP Message type")
