@@ -12,19 +12,17 @@ project(
 
 build_examples = get_option('examples')
 
-# need fallback option, as with 'modules' parameter 
-# dependency resolution doesn't work properly with 
-# '.wrap' provided dependency
-boost = dependency('boost', version : '>=1.71', 
-                    modules: [ 'coroutine', 'context'], 
-                    fallback : ['boost', 'boost_dep']) 
+boost_dep = declare_dependency(
+    dependencies: dependency('boost', required: false, version : '>=1.71',  
+    modules: [ 'context', 'coroutine']))
 
-sdbusplus = dependency('sdbusplus')
-sdbusplus_partial_dep = sdbusplus.partial_dependency(compile_args : false, link_args: true,
-     includes : true, links: true)
+sdbusplus_dep = dependency('sdbusplus')
+sdbusplus_partial_dep = sdbusplus_dep.partial_dependency(compile_args : false, 
+     link_args: true, includes : true, links: true)
 
-phosphorlog_dep = dependency('phosphor-logging').partial_dependency(compile_args : false, link_args: true,
-     includes : true, links: true)
+phosphor_logging_dep = dependency('phosphor-logging')
+phosphor_logging_partial_dep = phosphor_logging_dep.partial_dependency(compile_args : false, 
+     link_args: true, includes : true, links: true)
 
 systemd = dependency('systemd', required: true)
 systemd_system_unit_dir = systemd.get_pkgconfig_variable(
@@ -38,18 +36,18 @@ no_thread_flags = '-DBOOST_ASIO_DISABLE_THREADS'
 no_thread_dep = declare_dependency(compile_args: no_thread_flags)
 
 deps = [
-    boost,
-    systemd,
+    boost_dep,
     sdbusplus_partial_dep,
-    phosphorlog_dep,
+    phosphor_logging_partial_dep,
+    systemd,
     threads
 ]
 
 deps_no_thread = [
-    boost,
-    systemd,
+    boost_dep,
     sdbusplus_partial_dep,
-    phosphorlog_dep,
+    phosphor_logging_partial_dep,
+    systemd,
     no_thread_dep
 ]
 

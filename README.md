@@ -263,3 +263,11 @@ static void onDeviceUpdate(void*, const Event& evt, boost::asio::yield_context&)
 MCTPWrapper mctpWrapper(io, config, onDeviceUpdate, nullptr);
 ```
 The structure `Event` has information like if the device is added or removed and its EID. The first argument of the callback will be a pointer to the MCTPWrapper object itself.
+
+### Steps to run unit test in docker 
+* Use command ./docker_run.sh to run the docker.
+* Go to /root/local/ folder in docker. 
+* Run ./unit_test.sh to run unit test. 
+
+Note: 
+* Use 'exit' command to exit the docker. 
