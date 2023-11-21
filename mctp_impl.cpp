@@ -167,12 +167,22 @@ boost::system::error_code
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         "Detecting mctp endpoints");
 
+    listenForMCTPChanges();
+
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
     auto bus_vector = findBusByBindingType(yield);
     if (bus_vector)
     {
         endpointMap = buildMatchingEndpointMap(yield, bus_vector.value());
+        this->isInitialisationsDone = true;
+    }
+
+    if (responderVersions.size() > 0)
+    {
+        phosphor::logging::log<phosphor::logging::level::INFO>(
+            "Register responder was called before discovery");
+        registerResponder(responderVersions);
     }
 
     if (this->eidChangeCallback)
@@ -180,8 +190,6 @@ boost::system::error_code
         // getOwnEID was called before. Retrigger the events
         this->getOwnEIDs(this->eidChangeCallback);
     }
-
-    listenForMCTPChanges();
 
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         ("Detecting mctp endpoints completed. Found " +
@@ -1137,6 +1145,13 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
 
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         (std::string("MCTP general event from ") + msg.get_sender()).c_str());
+
+    if (!this->isInitialisationsDone)
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "Event will be dropped since endpoint discovery not done");
+        return;
+    }
 
     auto member = msg.get_member();
     if (member == intfAdded)

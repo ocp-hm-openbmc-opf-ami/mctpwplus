@@ -160,7 +160,8 @@ class MCTPImpl
      * @param dstEId Destination MCTP Device ID
      * @return dbus send method call return value
      */
-    int releaseBandwidth(boost::asio::yield_context yield, const DeviceID devID);
+    int releaseBandwidth(boost::asio::yield_context yield,
+                         const DeviceID devID);
 
     /**
      * @brief Send request to dstEId and receive response asynchronously in
@@ -263,6 +264,9 @@ class MCTPImpl
     EndpointMapExtended endpointMap;
     std::unordered_set<std::string> matchedBuses;
     std::vector<VersionFields> responderVersions;
+    std::unordered_map<std::string, uint8_t> networkIDCache;
+    bool isInitialisationsDone = false;
+
     // Get list of pair<bus, service_name_string> which expose mctp object
     std::optional<std::vector<std::pair<unsigned, std::string>>>
         findBusByBindingType(boost::asio::yield_context yield);
@@ -285,8 +289,9 @@ class MCTPImpl
     void onNewEID(const std::string& serviceName, DeviceID eid);
     void onOwnEIDChange(std::string serviceName, eid_t eid);
     void onEIDRemoved(DeviceID eid);
-    void addUniqueNameToMatchedServices(const std::string& serviceName, boost::asio::yield_context yield);
-    
+    void addUniqueNameToMatchedServices(const std::string& serviceName,
+                                        boost::asio::yield_context yield);
+
     void registerListeners(const std::string& serviceName);
     void unRegisterListeners(const std::string& serviceName);
 
@@ -295,7 +300,6 @@ class MCTPImpl
     friend struct internal::NewServiceCallback;
     friend struct internal::DeleteServiceCallback;
 
-    std::unordered_map<std::string, uint8_t> networkIDCache;
     uint8_t getNetworkID(const std::string& serviceName);
     DeviceID
         getDeviceIDFromPath(const sdbusplus::message::object_path& objectPath,
