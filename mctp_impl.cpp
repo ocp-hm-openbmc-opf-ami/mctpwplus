@@ -172,10 +172,10 @@ boost::system::error_code
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
     auto bus_vector = findBusByBindingType(yield);
+    this->isInitialisationsDone = true;
     if (bus_vector)
     {
         endpointMap = buildMatchingEndpointMap(yield, bus_vector.value());
-        this->isInitialisationsDone = true;
     }
 
     if (responderVersions.size() > 0)
