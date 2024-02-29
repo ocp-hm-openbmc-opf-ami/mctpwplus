@@ -12,16 +12,19 @@ project(
 
 build_examples = get_option('examples')
 
-boost_dep = declare_dependency(
-    dependencies: dependency('boost', required: false, version : '>=1.71',  
-    modules: [ 'context', 'coroutine']))
+boost_dep = dependency('boost', required: false, version : '>=1.71',
+    modules: [ 'context', 'coroutine'])
+if not boost_dep.found()
+    boost_proj = subproject('boost_1_83_0')
+    boost_dep = boost_proj.get_variable('boost_dep')
+endif
 
 sdbusplus_dep = dependency('sdbusplus')
-sdbusplus_partial_dep = sdbusplus_dep.partial_dependency(compile_args : false, 
+sdbusplus_partial_dep = sdbusplus_dep.partial_dependency(compile_args : false,
      link_args: true, includes : true, links: true)
 
 phosphor_logging_dep = dependency('phosphor-logging')
-phosphor_logging_partial_dep = phosphor_logging_dep.partial_dependency(compile_args : false, 
+phosphor_logging_partial_dep = phosphor_logging_dep.partial_dependency(compile_args : false,
      link_args: true, includes : true, links: true)
 
 systemd = dependency('systemd', required: true)
