@@ -904,6 +904,8 @@ void MCTPImpl::onNewService(const std::string& serviceName)
 
 void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
 {
+    this->endpointMap.emplace(extendedEID,
+                                      std::make_pair(0, serviceName));
     if (!this->networkChangeCallback)
     {
         return;
@@ -911,9 +913,6 @@ void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
     boost::asio::spawn(
         connection->get_io_context(),
         [this, extendedEID, serviceName](boost::asio::yield_context yield) {
-            this->endpointMap.emplace(extendedEID,
-                                      std::make_pair(0, serviceName));
-
             mctpw::Event event;
             event.eid = extendedEID.mctpEID();
             event.deviceId = extendedEID;
