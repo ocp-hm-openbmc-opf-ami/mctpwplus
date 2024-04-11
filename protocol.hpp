@@ -26,8 +26,7 @@ enum class OpCode : uint8_t
     sendReceive,
     sendOnly,
     broadcastResponse,
-    directedResponse,
-    ping
+    directedResponse
 };
 
 struct UnixIPCMessage

@@ -25,6 +25,7 @@ class SocketInterface
 {
   public:
     using BoostSocket = boost::asio::local::stream_protocol::socket;
+    using UnixSocket = boost::asio::local::stream_protocol;
     using ByteArray = std::vector<uint8_t>;
     SocketInterface(const std::string_view& socketPath,
                     boost::asio::io_context& io);
@@ -34,5 +35,10 @@ class SocketInterface
   private:
     BoostSocket socket;
     boost::asio::deadline_timer reqTimer;
+    ByteArray pendingRsp;
+    boost::asio::streambuf buffer;
+    void startReceiving();
+    void onSocketReceive(const boost::system::error_code& error,
+                         std::size_t bytesTransferred);
 };
 } // namespace mctpw

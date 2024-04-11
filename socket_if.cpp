@@ -23,6 +23,8 @@ SocketInterface::SocketInterface(const std::string_view& socketPath,
                                  boost::asio::io_context& io) :
     socket(io), reqTimer(io)
 {
+    socket.connect(UnixSocket::endpoint(socketPath));
+    startReceiving();
 }
 
 SocketInterface::~SocketInterface()
@@ -30,4 +32,50 @@ SocketInterface::~SocketInterface()
     socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
 
     socket.close();
+}
+
+using It = boost::asio::buffers_iterator<boost::asio::const_buffers_1>;
+
+std::pair<It, bool> isCompleteRequest(It begin, It end)
+{
+    auto distance = std::distance(begin, end);
+    if (distance > std::numeric_limits<uint16_t>::max())
+    {
+        return std::make_pair(begin, false);
+    }
+  
+    if (distance < static_cast<int>(sizeof(internal::UnixIPCMessage)))
+    {
+        return std::make_pair(begin, false);
+    }
+  
+    internal::UnixIPCMessage msg;
+    std::copy(begin, std::next(begin, sizeof(msg)),
+              reinterpret_cast<uint8_t*>(&msg));
+    auto expectedSize = le16toh(msg.len);
+    if (distance >= expectedSize)
+    {
+        return std::make_pair(std::next(begin, expectedSize), true);
+    }
+    else
+    {
+        return std::make_pair(begin, false);
+    }
+}
+
+void SocketInterface::startReceiving()
+{
+    boost::asio::async_read_until(socket, buffer, isCompleteRequest,
+                                  std::bind(&SocketInterface::onSocketReceive,
+                                            this, std::placeholders::_1,
+                                            std::placeholders::_2));
+}
+void SocketInterface::onSocketReceive(const boost::system::error_code& /*ec*/,
+                                      std::size_t /*size*/)
+{
+
+    /*
+    TODO:Will be adding the logic for process the received payload in upcoming
+    PR
+    */
 }
