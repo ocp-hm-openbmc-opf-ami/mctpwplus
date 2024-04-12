@@ -17,11 +17,11 @@
 
 #include "protocol.hpp"
 
+#include <phosphor-logging/log.hpp>
 using mctpw::SocketInterface;
 
 SocketInterface::SocketInterface(const std::string_view& socketPath,
-                                 boost::asio::io_context& io) :
-    socket(io), reqTimer(io)
+                                 boost::asio::io_context& io) : socket(io)
 {
     socket.connect(UnixSocket::endpoint(socketPath));
     startReceiving();
@@ -43,12 +43,12 @@ std::pair<It, bool> isCompleteRequest(It begin, It end)
     {
         return std::make_pair(begin, false);
     }
-  
+
     if (distance < static_cast<int>(sizeof(internal::UnixIPCMessage)))
     {
         return std::make_pair(begin, false);
     }
-  
+
     internal::UnixIPCMessage msg;
     std::copy(begin, std::next(begin, sizeof(msg)),
               reinterpret_cast<uint8_t*>(&msg));
@@ -70,12 +70,51 @@ void SocketInterface::startReceiving()
                                             this, std::placeholders::_1,
                                             std::placeholders::_2));
 }
-void SocketInterface::onSocketReceive(const boost::system::error_code& /*ec*/,
-                                      std::size_t /*size*/)
+void SocketInterface::onSocketReceive(const boost::system::error_code& ec,
+                                      std::size_t size)
 {
 
-    /*
-    TODO:Will be adding the logic for process the received payload in upcoming
-    PR
-    */
+    if (ec == boost::asio::error::eof ||
+        ec == boost::asio::error::bad_descriptor)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            "UNIX socket disconnected");
+        return;
+    }
+    if (ec)
+    {
+        startReceiving();
+        return;
+    }
+    std::vector<uint8_t> rspBuf(size);
+    boost::asio::buffer_copy(boost::asio::buffer(rspBuf), this->buffer.data(),
+                             size);
+    buffer.consume(size);
+    auto msg = reinterpret_cast<internal::UnixIPCMessage*>(rspBuf.data());
+    if (msg->opCode == internal::OpCode::directedResponse)
+    {
+        pendingRsp = std::move(rspBuf);
+        /*
+        ToDo:- Will be adding support to add Timer for each message
+        */
+    }
+    else
+    {
+        if (onMessageReceived)
+        {
+            auto broadcastMsg = reinterpret_cast<internal::BroadcastMessage*>(
+                rspBuf.data() + sizeof(*msg));
+            auto msgSize = sizeof(*msg) + sizeof(*broadcastMsg);
+
+            if (rspBuf.size() >= msgSize)
+            {
+                auto payloadLen = rspBuf.size() - msgSize;
+                std::vector<uint8_t> payload(
+                    std::prev(rspBuf.end(), payloadLen), rspBuf.end());
+                onMessageReceived(msg->eid, broadcastMsg->tagOwner,
+                                  broadcastMsg->msgTag, payload);
+            }
+        }
+    }
+    startReceiving();
 }

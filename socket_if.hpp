@@ -27,16 +27,23 @@ class SocketInterface
     using BoostSocket = boost::asio::local::stream_protocol::socket;
     using UnixSocket = boost::asio::local::stream_protocol;
     using ByteArray = std::vector<uint8_t>;
+    using ReceiveMessageCallback =
+        std::function<void(uint8_t, bool, uint8_t, const ByteArray&)>;
     SocketInterface(const std::string_view& socketPath,
                     boost::asio::io_context& io);
-
+    inline void setMessageReceivedCallback(ReceiveMessageCallback cb)
+    {
+        onMessageReceived = cb;
+    }
     ~SocketInterface();
 
   private:
     BoostSocket socket;
-    boost::asio::deadline_timer reqTimer;
+    std::unordered_map<int, std::shared_ptr<boost::asio::steady_timer>>
+        reqTimerList;
     ByteArray pendingRsp;
     boost::asio::streambuf buffer;
+    ReceiveMessageCallback onMessageReceived = nullptr;
     void startReceiving();
     void onSocketReceive(const boost::system::error_code& error,
                          std::size_t bytesTransferred);
