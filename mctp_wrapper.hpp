@@ -99,6 +99,19 @@ enum class BindingType : uint8_t
 };
 
 /**
+ * @brief Network Id is used for selecting the
+ * interface BMC <PCIe> CPU : network 1
+ * PFR <I3C> BMC <I3C> CPU : network 2
+ * PFR <I3C> BMC <I2C/I3C> AIC : network 3
+ */
+enum class MCTPNetwork : uint8_t
+{
+    pcie = 1,
+    i3cMng = 2,
+    i3cAic = 3,
+};
+
+/**
  * @brief MCTP Message Type
  *
  */
