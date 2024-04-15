@@ -23,6 +23,10 @@ using mctpw::SocketInterface;
 SocketInterface::SocketInterface(const std::string_view& socketPath,
                                  boost::asio::io_context& io) : socket(io)
 {
+    constexpr char unixSktAbsPath[] = "\0mctp";
+    constexpr size_t unixSktAbsPathLen = sizeof(unixSktAbsPath) - 1;
+    std::string path(unixSktAbsPath, unixSktAbsPathLen);
+    path += socketPath;
     socket.connect(UnixSocket::endpoint(socketPath));
     startReceiving();
 }

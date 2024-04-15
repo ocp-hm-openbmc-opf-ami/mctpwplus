@@ -176,6 +176,28 @@ boost::system::error_code
     if (bus_vector)
     {
         endpointMap = buildMatchingEndpointMap(yield, bus_vector.value());
+        if (useSocket)
+        {
+            for (auto& it : endpointMap)
+            {
+                auto [bus, service] = it.second;
+                std::string socketPath = readPropertyValue<std::string>(
+                    *connection, service, "/xyz/openbmc_project/mctp",
+                    "xyz.openbmc_project.MCTP.Base", "SocketPath");
+                auto sktInt = std::make_shared<SocketInterface>(
+                    socketPath, this->connection->get_io_context());
+                sktInt->setMessageReceivedCallback(
+                    [this](eid_t eid, bool tagOwner, uint8_t msgTag,
+                           const ByteArray& payload) {
+                        if (receiveCallback)
+                        {
+                            receiveCallback(this, eid, tagOwner, msgTag,
+                                            payload, 0);
+                        }
+                    });
+                socketIntf.insert(std::make_pair(service, std::move(sktInt)));
+            }
+        }
     }
 
     if (responderVersions.size() > 0)
@@ -904,8 +926,7 @@ void MCTPImpl::onNewService(const std::string& serviceName)
 
 void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
 {
-    this->endpointMap.emplace(extendedEID,
-                                      std::make_pair(0, serviceName));
+    this->endpointMap.emplace(extendedEID, std::make_pair(0, serviceName));
     if (!this->networkChangeCallback)
     {
         return;
@@ -1208,8 +1229,7 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
 
                    const ReconfigurationCallback& networkChangeCb,
                    const ReceiveMessageCallback& rxCb) :
-    connection(conn),
-    config(configIn), networkChangeCallback(networkChangeCb),
+    connection(conn), config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb)
 {
 }

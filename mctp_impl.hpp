@@ -16,6 +16,7 @@
 #pragma once
 
 #include "mctp_wrapper.hpp"
+#include "socket_if.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
@@ -256,16 +257,23 @@ class MCTPImpl
                      const std::string& serviceName/*, uint16_t vid,
                      uint16_t vmsgType*/);
     size_t eraseDevice(DeviceID eid);
+    inline void setUseSocket(bool flag)
+    {
+        useSocket = flag;
+    }
     std::optional<std::string> getDeviceLocation(const DeviceID eid);
     void getOwnEIDs(OwnEIDChangeCallback callback);
     void setExtendedReceiveCallback(ExtendedReceiveMessageCallback callback);
 
   private:
     EndpointMapExtended endpointMap;
+    bool useSocket = false;
     std::unordered_set<std::string> matchedBuses;
     std::vector<VersionFields> responderVersions;
     std::unordered_map<std::string, uint8_t> networkIDCache;
     bool isInitialisationsDone = false;
+    std::unordered_map<std::string, std::shared_ptr<SocketInterface>>
+        socketIntf;
 
     // Get list of pair<bus, service_name_string> which expose mctp object
     std::optional<std::vector<std::pair<unsigned, std::string>>>

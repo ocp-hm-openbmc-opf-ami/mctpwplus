@@ -34,6 +34,8 @@ struct UnixIPCMessage
     uint8_t eid;
     OpCode opCode;
     uint16_t len;
+    uint32_t sqNum;
+    uint32_t errorCode;
 } __attribute__((packed));
 
 struct SendReceiveRequest
@@ -49,6 +51,6 @@ struct SendOnlyRequest
 using BroadcastMessage = SendOnlyRequest;
 
 static_assert(sizeof(SendOnlyRequest) == 2);
-static_assert(sizeof(UnixIPCMessage) == 4);
+static_assert(sizeof(UnixIPCMessage) == 12);
 
 } // namespace internal
