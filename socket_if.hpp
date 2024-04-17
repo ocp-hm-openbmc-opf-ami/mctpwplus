@@ -35,13 +35,19 @@ class SocketInterface
     {
         onMessageReceived = cb;
     }
+    std::pair<std::error_code, ByteArray>
+        sendReceiveYield(boost::asio::yield_context yield, uint8_t eid,
+                         ByteArray req,
+                         const std::chrono::milliseconds timeout);
     ~SocketInterface();
 
   private:
     BoostSocket socket;
+    boost::asio::io_context& ioc;
     std::unordered_map<int, std::shared_ptr<boost::asio::steady_timer>>
         reqTimerList;
     ByteArray pendingRsp;
+    int seqNum = 0;
     boost::asio::streambuf buffer;
     ReceiveMessageCallback onMessageReceived = nullptr;
     void startReceiving();

@@ -20,8 +20,17 @@
 #include <phosphor-logging/log.hpp>
 using mctpw::SocketInterface;
 
+template <typename T>
+void writeSocket(boost::asio::local::stream_protocol::socket& socket,
+                 const T& data, size_t len)
+{
+
+    boost::asio::write(socket, boost::asio::buffer(data.data(), len));
+}
+
 SocketInterface::SocketInterface(const std::string_view& socketPath,
-                                 boost::asio::io_context& io) : socket(io)
+                                 boost::asio::io_context& io) :
+    socket(io), ioc(io)
 {
     constexpr char unixSktAbsPath[] = "\0mctp";
     constexpr size_t unixSktAbsPathLen = sizeof(unixSktAbsPath) - 1;
@@ -98,9 +107,9 @@ void SocketInterface::onSocketReceive(const boost::system::error_code& ec,
     if (msg->opCode == internal::OpCode::directedResponse)
     {
         pendingRsp = std::move(rspBuf);
-        /*
-        ToDo:- Will be adding support to add Timer for each message
-        */
+        auto timer = reqTimerList[msg->sqNum];
+        timer->cancel();
+        reqTimerList.erase(msg->sqNum);
     }
     else
     {
@@ -121,4 +130,62 @@ void SocketInterface::onSocketReceive(const boost::system::error_code& ec,
         }
     }
     startReceiving();
+}
+
+template <typename Arr, typename T>
+void prefixBytes(Arr& a, const T& t)
+{
+    using Val = typename Arr::value_type;
+    auto begin = reinterpret_cast<const Val*>(&t);
+    auto end = begin + sizeof(t);
+    a.insert(a.begin(), begin, end);
+}
+
+std::pair<std::error_code, SocketInterface::ByteArray>
+    SocketInterface::sendReceiveYield(boost::asio::yield_context yield,
+                                      uint8_t eid, ByteArray req,
+                                      const std::chrono::milliseconds timeout)
+{
+    ByteArray rsp{};
+    internal::UnixIPCMessage msg;
+    internal::SendReceiveRequest sendRcvReq;
+    msg.eid = eid;
+    msg.sqNum = ++seqNum;
+    msg.errorCode = 0;
+    msg.len = htole16(
+        static_cast<uint16_t>(req.size() + sizeof(msg) + sizeof(sendRcvReq)));
+    msg.opCode = internal::OpCode::sendReceive;
+    sendRcvReq.timeout = static_cast<uint16_t>(timeout.count());
+    prefixBytes(req, sendRcvReq);
+    prefixBytes(req, msg);
+    writeSocket(socket, req, req.size());
+    auto it = reqTimerList.find(seqNum);
+    if (it != reqTimerList.end())
+    {
+        return std::make_pair(
+            std::make_error_code(std::errc::device_or_resource_busy), rsp);
+    }
+    auto timer = std::make_shared<boost::asio::steady_timer>(ioc);
+    timer->expires_from_now(timeout);
+    reqTimerList.insert(std::make_pair(seqNum, timer));
+    boost::system::error_code ec;
+    timer->async_wait(yield[ec]);
+    if (ec == boost::asio::error::operation_aborted)
+    {
+        if (req.size() == 0 ||
+            pendingRsp.size() < sizeof(internal::UnixIPCMessage))
+        {
+            return std::make_pair(
+                std::make_error_code(std::errc::no_message_available), rsp);
+        }
+        auto error =
+            reinterpret_cast<internal::UnixIPCMessage*>(pendingRsp.data())
+                ->errorCode;
+        pendingRsp.erase(
+            pendingRsp.begin(),
+            std::next(pendingRsp.begin(), sizeof(internal::UnixIPCMessage)));
+        return std::make_pair(std::error_code(error, std::generic_category()),
+                              pendingRsp);
+    }
+    return std::make_pair(std::make_error_code(std::errc::timed_out), rsp);
 }
