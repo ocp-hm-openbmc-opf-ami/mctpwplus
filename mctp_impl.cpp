@@ -176,7 +176,6 @@ boost::system::error_code
     if (bus_vector)
     {
         endpointMap = buildMatchingEndpointMap(yield, bus_vector.value());
-      
         if (useSocket)
         {
             for (auto& it : endpointMap)
@@ -499,11 +498,23 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID devID,
         }
         return;
     }
+    if (useSocket)
+    {
+        auto socket = this->socketIntf.find(it->second.second);
+        if (socket != this->socketIntf.end())
+        {
+            socket->second->sendReceiveAsync(callback, devID.mctpEID(), request,
+                                             timeout);
+        }
+    }
+    else
+    {
 
-    connection->async_method_call(
-        callback, it->second.second, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload",
-        devID.mctpEID(), request, static_cast<uint16_t>(timeout.count()));
+        connection->async_method_call(
+            callback, it->second.second, "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload",
+            devID.mctpEID(), request, static_cast<uint16_t>(timeout.count()));
+    }
 }
 
 std::pair<boost::system::error_code, ByteArray>

@@ -189,3 +189,63 @@ std::pair<std::error_code, SocketInterface::ByteArray>
     }
     return std::make_pair(std::make_error_code(std::errc::timed_out), rsp);
 }
+
+void SocketInterface::sendReceiveAsync(ReceiveCallback receiveCb,
+                                       uint8_t dstEId, ByteArray request,
+                                       std::chrono::milliseconds timeout)
+
+{
+    ByteArray rsp;
+    internal::UnixIPCMessage msg;
+    internal::SendReceiveRequest sendRcvReq;
+    sendRcvReq.timeout = static_cast<uint16_t>(timeout.count());
+
+    auto prefix = reinterpret_cast<uint8_t*>(&sendRcvReq);
+    request.insert(request.begin(), prefix, prefix + sizeof(sendRcvReq));
+    msg.sqNum = ++seqNum;
+    msg.eid = dstEId;
+    msg.len = htole16(static_cast<uint16_t>(request.size() + sizeof(msg)));
+    msg.opCode = internal::OpCode::sendReceive;
+    prefix = reinterpret_cast<uint8_t*>(&msg);
+    request.insert(request.begin(), prefix, prefix + sizeof(msg));
+
+    boost::asio::async_write(
+        socket, boost::asio::buffer(request, request.size()),
+        [sqNum = msg.sqNum, this, timeout, receiveCb,
+         &rsp](boost::system::error_code ec, size_t) {
+            if (ec)
+
+            {
+                reqTimerList.erase(sqNum);
+                phosphor::logging::log<phosphor::logging::level::ERR>(
+                    ("Async send receive. Socket write error. " + ec.message())
+                        .c_str());
+                return receiveCb(ec, rsp);
+            }
+            auto timer = std::make_shared<boost::asio::steady_timer>(ioc);
+            timer->expires_from_now(timeout);
+            reqTimerList.insert(std::make_pair(sqNum, timer));
+            timer->async_wait([this, sqNum, receiveCb,
+                               &rsp](boost::system::error_code timer_ec) {
+                if (timer_ec == boost::asio::error::operation_aborted)
+                {
+                    pendingRsp.erase(
+                        pendingRsp.begin(),
+                        std::next(pendingRsp.begin(),
+                                  sizeof(internal::UnixIPCMessage)));
+                    receiveCb(boost::system::error_code(), pendingRsp);
+                }
+                else
+                {
+                    phosphor::logging::log<phosphor::logging::level::ERR>(
+                        ("No valid async response. " + timer_ec.message())
+                            .c_str());
+                    receiveCb(boost::system::errc::make_error_code(
+                                  boost::system::errc::
+                                      resource_unavailable_try_again),
+                              rsp);
+                }
+                reqTimerList.erase(sqNum);
+            });
+        });
+}
