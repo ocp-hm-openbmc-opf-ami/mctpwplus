@@ -249,3 +249,24 @@ void SocketInterface::sendReceiveAsync(ReceiveCallback receiveCb,
             });
         });
 }
+void SocketInterface::sendAsync(const SocketInterface::SendCallback& callback,
+                                const uint8_t dstEID, const uint8_t msgTag,
+                                const bool tagOwner, ByteArray request)
+{
+    internal::UnixIPCMessage msg;
+    internal::SendOnlyRequest sendReq;
+    msg.eid = dstEID;
+    msg.len = htole16(
+        static_cast<uint16_t>(request.size() + sizeof(msg) + sizeof(sendReq)));
+    msg.opCode = internal::OpCode::sendOnly;
+    sendReq.msgTag = msgTag;
+    sendReq.tagOwner = tagOwner;
+    auto prefix = reinterpret_cast<uint8_t*>(&sendReq);
+    request.insert(request.begin(), prefix, prefix + sizeof(sendReq));
+    prefix = reinterpret_cast<uint8_t*>(&msg);
+    request.insert(request.begin(), prefix, prefix + sizeof(msg));
+
+    boost::asio::async_write(
+        socket, boost::asio::buffer(request, request.size()), callback);
+}
+

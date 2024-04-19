@@ -31,6 +31,7 @@ class SocketInterface
         std::function<void(uint8_t, bool, uint8_t, const ByteArray&)>;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
+    using SendCallback = std::function<void(boost::system::error_code, int)>;
 
     SocketInterface(const std::string_view& socketPath,
                     boost::asio::io_context& io);
@@ -44,6 +45,9 @@ class SocketInterface
                          const std::chrono::milliseconds timeout);
     void sendReceiveAsync(ReceiveCallback receiveCb, uint8_t dstEId,
                           ByteArray request, std::chrono::milliseconds timeout);
+    void sendAsync(const SendCallback& callback, const uint8_t dstEId,
+                   const uint8_t msgTag, const bool tagOwner,
+                   ByteArray request);
     ~SocketInterface();
 
   private:

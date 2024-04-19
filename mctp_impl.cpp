@@ -509,7 +509,6 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID devID,
     }
     else
     {
-
         connection->async_method_call(
             callback, it->second.second, "/xyz/openbmc_project/mctp",
             "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload",
@@ -725,11 +724,19 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID devID,
         }
         return;
     }
-
-    connection->async_method_call(
-        callback, it->second.second, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload",
-        devID.mctpEID(), msgTag, tagOwner, request);
+    if (useSocket)
+    {
+        auto socket = this->socketIntf.find(it->second.second);
+        socket->second->sendAsync(callback, devID.mctpEID(), msgTag, tagOwner,
+                                  request);
+    }
+    else
+    {
+        connection->async_method_call(
+            callback, it->second.second, "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload",
+            devID.mctpEID(), msgTag, tagOwner, request);
+    }
 }
 
 std::pair<boost::system::error_code, int>
