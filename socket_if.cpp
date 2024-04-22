@@ -36,7 +36,7 @@ SocketInterface::SocketInterface(const std::string_view& socketPath,
     constexpr size_t unixSktAbsPathLen = sizeof(unixSktAbsPath) - 1;
     std::string path(unixSktAbsPath, unixSktAbsPathLen);
     path += socketPath;
-    socket.connect(UnixSocket::endpoint(socketPath));
+    socket.connect(UnixSocket::endpoint(path));
     startReceiving();
 }
 
