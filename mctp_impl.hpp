@@ -107,7 +107,8 @@ class MCTPImpl
                                  {MessageType::cxlFmApi, "CXLFMAPI"},
                                  {MessageType::cxlCci, "CXLCCI"},
                                  {MessageType::vdpci, "VDPCI"},
-                                 {MessageType::vdiana, "VDIANA"}};
+                                 {MessageType::vdiana, "VDIANA"},
+				 {MessageType::any, "ANY"}};
     /**
      * @brief This method or its yield variant must be called before accessing
      * any send receive functions. It scan and detect all mctp endpoints exposed

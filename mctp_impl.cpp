@@ -166,7 +166,6 @@ boost::system::error_code
 {
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         "Detecting mctp endpoints");
-
     listenForMCTPChanges();
 
     boost::system::error_code ec =
@@ -264,10 +263,14 @@ int MCTPImpl::getBusId(const std::string& serviceName)
         {
             bus = i3cBusId++;
         }
-        else
+        else if(config.bindingType == mctpw::BindingType::mctpOverAny)
         {
-            throw std::invalid_argument("Unsupported binding type");
+            bus = 1; // dummy BusID for BindingType any
         }
+	else
+	{
+   	    throw std::invalid_argument("Unsupported binding type");
+	}
         return bus;
     }
     catch (const std::exception& e)
@@ -305,11 +308,15 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
     boost::system::error_code ec;
     std::vector<std::pair<unsigned, std::string>> buses;
     DictType<std::string, std::vector<std::string>> services;
-    std::vector<std::string> interfaces;
+    std::vector<std::string> interfaces = {};
     try
     {
-        interfaces.push_back(
-            mctpw::MCTPWrapper::bindingToInterface.at(config.bindingType));
+        auto intf =
+            mctpw::MCTPWrapper::bindingToInterface.at(config.bindingType);
+        if (!intf.empty())
+        {
+            interfaces.push_back(intf);
+        }
         // find the services, with their interfaces, that implement a
         // certain object path
         services = connection->yield_method_call<decltype(services)>(
@@ -395,15 +402,18 @@ MCTPImpl::EndpointMapExtended MCTPImpl::buildMatchingEndpointMap(
             }
             try
             {
-                /*SupportedMessageTypes interface is mandatory*/
-                auto& msgIf = interfaces.at(
-                    "xyz.openbmc_project.MCTP.SupportedMessageTypes");
-                MctpPropertiesVariantType pv;
-                pv = msgIf.at(msgTypeToPropertyName.at(config.type));
-
-                if (std::get<bool>(pv) == false)
+                if (config.type != mctpw::MessageType::any)
                 {
-                    continue;
+                    /*SupportedMessageTypes interface is mandatory*/
+                    auto& msgIf = interfaces.at(
+                        "xyz.openbmc_project.MCTP.SupportedMessageTypes");
+                    MctpPropertiesVariantType pv;
+                    pv = msgIf.at(msgTypeToPropertyName.at(config.type));
+
+                    if (std::get<bool>(pv) == false)
+                    {
+                        continue;
+                    }
                 }
                 if (mctpw::MessageType::vdpci == config.type)
                 {
@@ -894,6 +904,7 @@ uint8_t MCTPImpl::getNetworkID(const std::string& serviceName)
             *this->connection, serviceName, "/xyz/openbmc_project/mctp",
             "xyz.openbmc_project.MCTP.Base", "NetworkID");
         this->networkIDCache.emplace(serviceName, networkID);
+        return networkID;
     }
     catch (const std::exception&)
     {
@@ -983,8 +994,9 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
     {
         // Interface added on base object. Means new service.
         if (values.end() !=
-            values.find(
-                mctpw::MCTPWrapper::bindingToInterface.at(config.bindingType)))
+                values.find(mctpw::MCTPWrapper::bindingToInterface.at(
+                    config.bindingType)) ||
+            config.bindingType == mctpw::BindingType::mctpOverAny)
         {
             this->onNewService(msg.get_sender());
         }
@@ -1006,12 +1018,14 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
         // Interface added on base endpoint object. Means new EID
         auto itSupportedMsgTypes =
             values.find("xyz.openbmc_project.MCTP.SupportedMessageTypes");
-        if (values.end() != itSupportedMsgTypes)
+        if (values.end() != itSupportedMsgTypes ||
+            config.type == mctpw::MessageType::any)
         {
             const auto& properties = itSupportedMsgTypes->second;
             const auto& registeredMsgType = properties.at(
                 mctpw::MCTPImpl::msgTypeToPropertyName.at(config.type));
-            if (std::get<bool>(registeredMsgType))
+            if (std::get<bool>(registeredMsgType) ||
+                config.type == mctpw::MessageType::any)
             {
                 // TODO Check VDPCI mask matching
                 auto newExtendedEID =

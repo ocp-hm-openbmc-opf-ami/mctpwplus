@@ -89,6 +89,7 @@ struct VersionFields
  */
 enum class BindingType : uint8_t
 {
+    mctpOverAny = 0x00,
     mctpOverSmBus = 0x01,
     mctpOverPcieVdm = 0x02,
     mctpOverUsb = 0x03,
@@ -133,10 +134,11 @@ enum class MessageType : uint8_t
     cxlFmApi = 0x07,
     /** @brief CXL CCI over MCTP */
     cxlCci = 0x08,
+    any = 0xFF,
     /** @brief Vendor Defined PCI */
     vdpci = 0x7E,
     /** @brief Vendor Defined IANA */
-    vdiana = 0x7F,
+    vdiana = 0x7F
 };
 
 /**
@@ -385,7 +387,7 @@ class MCTPWrapper
      * @param timeout reserve bandwidth timeout
      * @return dbus send method call return value
      */
-    int reserveBandwidth(boost::asio::yield_context yield,
+    int reserveBandwidth(boost::asio::yield_context yield, 
                          const DeviceID devID, const uint16_t timeout);
 
     /**
@@ -617,7 +619,8 @@ class MCTPWrapper
                                  {MessageType::cxlFmApi, "CXLFMAPI"},
                                  {MessageType::cxlCci, "CXLCCI"},
                                  {MessageType::vdpci, "VDPCI"},
-                                 {MessageType::vdiana, "VDIANA"}};
+                                 {MessageType::vdiana, "VDIANA"},
+                                 {MessageType::any, "ANY"}};
 
     static const inline std::unordered_map<BindingType, const std::string>
         bindingToInterface = {
@@ -629,7 +632,8 @@ class MCTPWrapper
             {BindingType::mctpOverKcs, ""},
             {BindingType::mctpOverSerial, ""},
             {BindingType::mctpOverI3C, "xyz.openbmc_project.MCTP.Binding.I3C"},
-            {BindingType::vendorDefined, ""}};
+            {BindingType::vendorDefined, ""},
+            {BindingType::mctpOverAny, ""}};
 
   private:
     std::unique_ptr<MCTPImpl> pimpl;
