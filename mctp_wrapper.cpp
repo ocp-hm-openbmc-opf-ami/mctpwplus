@@ -95,14 +95,37 @@ boost::system::error_code
     return ec;
 }
 
+NetworkID MCTPWrapper::findNetworkId(const eid_t dstEId)
+{
+    static std::unordered_map<eid_t, NetworkID> eidToNwidCache;
+    auto cacheIt = eidToNwidCache.find(dstEId);
+    if (cacheIt != eidToNwidCache.end())
+    {
+        return cacheIt->second;
+    }
+
+    for (const auto& pair : pimpl->getEndpointMap())
+    {
+        if (pair.first.mctpEID() == dstEId)
+        {
+            NetworkID nwid = pair.first.networkId();
+            eidToNwidCache[dstEId] = nwid;
+            return nwid;
+        }
+    }
+
+    return 0;
+}
+
 void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
                                    const ByteArray& request,
                                    std::chrono::milliseconds timeout)
 {
-    sendReceiveAsync(callback, DeviceID(dstEId, 0), request, timeout);
+sendReceiveAsync(callback, DeviceID(dstEId, findNetworkId(dstEId)), request, timeout);
 }
 
-void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, DeviceID extendedEID,
+void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback,
+                                   DeviceID extendedEID,
                                    const ByteArray& request,
                                    std::chrono::milliseconds timeout)
 {
@@ -114,13 +137,14 @@ std::pair<boost::system::error_code, ByteArray>
                                   eid_t dstEId, const ByteArray& request,
                                   std::chrono::milliseconds timeout)
 {
-    return sendReceiveYield(yield, DeviceID(dstEId, 0), request, timeout);
+
+    return sendReceiveYield(yield, DeviceID(dstEId, findNetworkId(dstEId)),
+                            request, timeout);
 }
 
-std::pair<boost::system::error_code, ByteArray>
-    MCTPWrapper::sendReceiveYield(boost::asio::yield_context yield,
-                                  DeviceID extendedEID, const ByteArray& request,
-                                  std::chrono::milliseconds timeout)
+std::pair<boost::system::error_code, ByteArray> MCTPWrapper::sendReceiveYield(
+    boost::asio::yield_context yield, DeviceID extendedEID,
+    const ByteArray& request, std::chrono::milliseconds timeout)
 {
     return pimpl->sendReceiveYield(yield, extendedEID, request, timeout);
 }
@@ -129,11 +153,13 @@ std::pair<boost::system::error_code, ByteArray>
     MCTPWrapper::sendReceiveBlocked(eid_t dstEId, const ByteArray& request,
                                     std::chrono::milliseconds timeout)
 {
-    return sendReceiveBlocked(DeviceID(dstEId, 0), request, timeout);
+    return sendReceiveBlocked(DeviceID(dstEId, findNetworkId(dstEId)), request,
+                              timeout);
 }
 
 std::pair<boost::system::error_code, ByteArray>
-    MCTPWrapper::sendReceiveBlocked(DeviceID extendedEID, const ByteArray& request,
+    MCTPWrapper::sendReceiveBlocked(DeviceID extendedEID,
+                                    const ByteArray& request,
                                     std::chrono::milliseconds timeout)
 {
     return pimpl->sendReceiveBlocked(extendedEID, request, timeout);
@@ -154,12 +180,13 @@ void MCTPWrapper::sendAsync(const SendCallback& callback, const eid_t dstEId,
                             const uint8_t msgTag, const bool tagOwner,
                             const ByteArray& request)
 {
-    sendAsync(callback, DeviceID(dstEId, 0), msgTag, tagOwner, request);
+    sendAsync(callback, DeviceID(dstEId, findNetworkId(dstEId)), msgTag,
+              tagOwner, request);
 }
 
-void MCTPWrapper::sendAsync(const SendCallback& callback, const DeviceID extendedEID,
-                            const uint8_t msgTag, const bool tagOwner,
-                            const ByteArray& request)
+void MCTPWrapper::sendAsync(const SendCallback& callback,
+                            const DeviceID extendedEID, const uint8_t msgTag,
+                            const bool tagOwner, const ByteArray& request)
 {
     pimpl->sendAsync(callback, extendedEID, msgTag, tagOwner, request);
 }
@@ -169,7 +196,8 @@ std::pair<boost::system::error_code, int>
                            const eid_t dstEId, const uint8_t msgTag,
                            const bool tagOwner, const ByteArray& request)
 {
-    return sendYield(yield, DeviceID(dstEId, 0), msgTag, tagOwner, request);
+    return sendYield(yield, DeviceID(dstEId, findNetworkId(dstEId)), msgTag,
+                     tagOwner, request);
 }
 
 std::pair<boost::system::error_code, int>
@@ -213,7 +241,7 @@ int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
 }
 
 int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
-                                  const DeviceID extendedEID, const uint16_t timeout)
+const DeviceID extendedEID, const uint16_t timeout)
 {
     return pimpl->reserveBandwidth(yield, extendedEID, timeout);
 }
@@ -234,6 +262,7 @@ std::optional<std::string> MCTPWrapper::getDeviceLocation(const eid_t eid)
 {
     return pimpl->getDeviceLocation(DeviceID(eid, 0));
 }
+
 std::optional<std::string> MCTPWrapper::getDeviceLocation(const DeviceID extendedEID)
 {
     return pimpl->getDeviceLocation(extendedEID);

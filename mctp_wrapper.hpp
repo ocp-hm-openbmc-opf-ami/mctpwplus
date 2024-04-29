@@ -531,7 +531,8 @@ class MCTPWrapper
     std::pair<boost::system::error_code, int>
         sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
                   const uint8_t msgTag, const bool tagOwner,
-                  const ByteArray& request);    /**
+                  const ByteArray& request);    
+    /**
      * @brief Send MCTP request to devID and receive status of send operation
      *
      * @param yield boost yiled_context object to yield on dbus calls
@@ -637,6 +638,7 @@ class MCTPWrapper
 
   private:
     std::unique_ptr<MCTPImpl> pimpl;
+    NetworkID findNetworkId(const eid_t dstEId);
 };
 
 } // namespace mctpw
