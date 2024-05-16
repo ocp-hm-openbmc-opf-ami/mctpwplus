@@ -646,14 +646,6 @@ boost::system::error_code
     try
     {
         auto reply = connection->call(msg);
-        if (reply.is_method_error())
-        {
-            phosphor::logging::log<phosphor::logging::level::ERR>(
-                "D-Bus error in registering the responder");
-
-            return boost::system::errc::make_error_code(
-                boost::system::errc::io_error);
-        }
         reply.read(rc);
         if (!rc)
         {
@@ -701,17 +693,19 @@ std::pair<boost::system::error_code, ByteArray>
     msg.append(request);
     msg.append(static_cast<uint16_t>(timeout.count()));
 
-    auto reply = connection->call(msg);
-    if (reply.is_method_error())
+    try
+    {
+        auto reply = connection->call(msg);
+        reply.read(receiveResult.second);
+    }
+    catch (const sdbusplus::exception::SdBusError& sdbusError)
     {
         phosphor::logging::log<phosphor::logging::level::DEBUG>(
             "SendReceiveBlocked: Error in method call ",
             phosphor::logging::entry("EID=%d", devID.id));
         receiveResult.first =
             boost::system::errc::make_error_code(boost::system::errc::io_error);
-        return receiveResult;
     }
-    reply.read(receiveResult.second);
 
     return receiveResult;
 }
