@@ -3,10 +3,11 @@ project(
     'cpp',
     license: 'Apache-2.0',
     version: '0.1',
+    meson_version: '>=1.1.1',
     default_options: [
         'warning_level=3',
         'werror=false',
-        'cpp_std=c++20'
+        'cpp_std=c++23'
     ],
 )
 
@@ -92,3 +93,7 @@ pkg.generate(
     requires: systemd,
     extra_cflags: no_thread_flags,
 )
+
+if not get_option('tests').disabled()
+  subdir('test')
+endif

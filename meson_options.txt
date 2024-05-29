@@ -1,3 +1,7 @@
 option(
     'examples', type: 'feature', description: 'Build examples.'
 )
+option(
+    'tests', type: 'feature', description: 'Build Mctpwplus Unit Test.', value : 'enabled'
+)
+

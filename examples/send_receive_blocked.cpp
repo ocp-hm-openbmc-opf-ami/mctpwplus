@@ -20,7 +20,7 @@
 #include <iostream>
 #include <phosphor-logging/log.hpp>
 
-int main(int argc, char* argv[])
+int main()
 {
     uint8_t eid = 10;
     using namespace mctpw;
