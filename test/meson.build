@@ -1,4 +1,4 @@
-gtest_dep = dependency('gtest', main: true, disabler: true, required: false)
+gtest_dep = dependency('gtest', required:false)
 if not gtest_dep.found()
     gtest_subproject = cmake.subproject('gtest')
     cm_gtest = gtest_subproject.dependency('gtest')

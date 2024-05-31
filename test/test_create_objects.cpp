@@ -108,3 +108,9 @@ TEST(MCTPWrapper, ConstructorTest)
         EXPECT_NO_THROW(MCTPWrapper mctpWrapper(*io, config, nullptr, nullptr));
     }
 }
+
+int main(int argc, char** argv)
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
