@@ -273,6 +273,7 @@ class MCTPImpl
     std::vector<VersionFields> responderVersions;
     std::unordered_map<std::string, uint8_t> networkIDCache;
     bool isInitialisationsDone = false;
+    std::unordered_map<std::string, std::string> uniqueNameToReadableCache;
     std::unordered_map<std::string, std::shared_ptr<SocketInterface>>
         socketIntf;
 
@@ -297,7 +298,7 @@ class MCTPImpl
     void onNewService(const std::string& serviceName);
     void onNewEID(const std::string& serviceName, DeviceID eid);
     void onOwnEIDChange(std::string serviceName, eid_t eid);
-    void onEIDRemoved(DeviceID eid);
+    void onEIDRemoved(const std::string& serviceName, DeviceID eid);
     void addUniqueNameToMatchedServices(const std::string& serviceName,
                                         boost::asio::yield_context yield);
 
@@ -313,5 +314,6 @@ class MCTPImpl
     DeviceID
         getDeviceIDFromPath(const sdbusplus::message::object_path& objectPath,
                             const std::string& serviceName);
+    std::string getReadableName(const std::string& serviceName);
 };
 } // namespace mctpw

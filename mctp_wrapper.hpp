@@ -243,6 +243,7 @@ struct Event
     EventType type;
     eid_t eid;
     DeviceID deviceId;
+    std::string serviceName = "";
 };
 
 struct OwnEIDChange

@@ -24,9 +24,12 @@
 using mctpw::BindingType;
 using mctpw::MessageType;
 
-static void onDeviceUpdate(void*, const mctpw::Event&, boost::asio::yield_context&)
+static void onDeviceUpdate(void*, const mctpw::Event& evt,
+                           boost::asio::yield_context&)
 {
-    std::cout << "Network reconfiguration_callback." << std::endl;
+    std::cout << "Event on " << evt.serviceName << ". EID "
+              << static_cast<int>(evt.eid) << ". Type "
+              << static_cast<int>(evt.type) << std::endl;
 }
 
 int main(int argc, char* argv[])

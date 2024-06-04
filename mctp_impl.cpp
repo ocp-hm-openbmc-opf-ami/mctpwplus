@@ -337,7 +337,7 @@ std::optional<std::vector<std::pair<unsigned, std::string>>>
             try
             {
                 int bus = this->getBusId(service);
-                buses.emplace_back(bus, service);
+                buses.emplace_back(bus, this->getReadableName(service));
                 addUniqueNameToMatchedServices(service, yield);
             }
             catch (const std::exception& e)
@@ -786,7 +786,7 @@ void MCTPImpl::addToEidMap(boost::asio::yield_context yield,
         return;
     }
     std::vector<std::pair<unsigned, std::string>> buses;
-    buses.emplace_back(busID, serviceName);
+    buses.emplace_back(busID, this->getReadableName(serviceName));
     auto eidMap = buildMatchingEndpointMap(yield, buses);
     this->endpointMap.insert(eidMap.begin(), eidMap.end());
 }
@@ -851,10 +851,14 @@ void MCTPImpl::triggerGetOwnEID(const std::string& serviceName)
     try
     {
         eid_t eid = readOwnEID(serviceName, *this->connection);
+        if (eid == 0)
+        {
+            return;
+        }
         OwnEIDChange evt;
         OwnEIDChange::EIDChangeData data;
         data.eid = eid;
-        data.service = serviceName;
+        data.service = getReadableName(serviceName);
         evt.context = &data;
         this->eidChangeCallback(evt);
     }
@@ -958,7 +962,8 @@ void MCTPImpl::onNewService(const std::string& serviceName)
 
 void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
 {
-    this->endpointMap.emplace(extendedEID, std::make_pair(0, serviceName));
+    this->endpointMap.emplace(
+        extendedEID, std::make_pair(0, this->getReadableName(serviceName)));
     if (!this->networkChangeCallback)
     {
         return;
@@ -970,6 +975,7 @@ void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
             event.eid = extendedEID.mctpEID();
             event.deviceId = extendedEID;
             event.type = mctpw::Event::EventType::deviceAdded;
+            event.serviceName = this->getReadableName(serviceName);
             this->networkChangeCallback(this, event, yield);
         });
 }
@@ -1030,7 +1036,7 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
     }
 }
 
-void MCTPImpl::onEIDRemoved(DeviceID deviceID)
+void MCTPImpl::onEIDRemoved(const std::string& serviceName, DeviceID deviceID)
 {
     if (eraseDevice(deviceID) == 0)
     {
@@ -1044,14 +1050,16 @@ void MCTPImpl::onEIDRemoved(DeviceID deviceID)
     {
         return;
     }
-    boost::asio::spawn(connection->get_io_context(),
-                       [this, deviceID](boost::asio::yield_context yield) {
-                           mctpw::Event event;
-                           event.type = mctpw::Event::EventType::deviceRemoved;
-                           event.eid = deviceID.mctpEID();
-                           event.deviceId = deviceID;
-                           this->networkChangeCallback(this, event, yield);
-                       });
+    boost::asio::spawn(
+        connection->get_io_context(),
+        [this, deviceID, serviceName](boost::asio::yield_context yield) {
+            mctpw::Event event;
+            event.type = mctpw::Event::EventType::deviceRemoved;
+            event.eid = deviceID.mctpEID();
+            event.deviceId = deviceID;
+            event.serviceName = this->getReadableName(serviceName);
+            this->networkChangeCallback(this, event, yield);
+        });
 }
 
 void MCTPImpl::onInterfaceRemoved(sdbusplus::message::message& msg)
@@ -1071,7 +1079,7 @@ void MCTPImpl::onInterfaceRemoved(sdbusplus::message::message& msg)
                 auto deviceID =
                     getDeviceIDFromPath(objectPath, msg.get_sender());
                 // Cannot check values of the interface since its removed
-                this->onEIDRemoved(deviceID);
+                this->onEIDRemoved(msg.get_sender(), deviceID);
             }
             catch (const std::exception& e)
             {
@@ -1091,6 +1099,7 @@ void MCTPImpl::onInterfaceRemoved(sdbusplus::message::message& msg)
                 ("Removing mctp service " + std::string(msg.get_sender()))
                     .c_str());
             this->matchedBuses.erase(msg.get_sender());
+            this->uniqueNameToReadableCache.erase(msg.get_sender());
             for (auto& [eid, service] : this->endpointMap)
             {
                 if (service.second == msg.get_sender())
@@ -1160,9 +1169,14 @@ void MCTPImpl::onMessageReceived(sdbusplus::message::message& msg)
 
 void MCTPImpl::onOwnEIDChange(std::string serviceName, eid_t eid)
 {
+    if (eid == 0)
+    {
+        return;
+    }
     OwnEIDChange evt;
     OwnEIDChange::EIDChangeData data;
     data.eid = eid;
+    serviceName = getReadableName(serviceName);
     data.service = std::move(serviceName);
     evt.context = &data;
     if (this->eidChangeCallback)
@@ -1267,6 +1281,59 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
     connection(conn), config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb)
 {
+}
+
+std::string MCTPImpl::getReadableName(const std::string& uniqueServiceName)
+{
+    boost::system::error_code ec;
+    std::vector<std::pair<unsigned, std::string>> buses;
+    DictType<std::string, std::vector<std::string>> services;
+    std::vector<std::string> interfaces;
+
+    if (uniqueServiceName.front() != ':')
+    {
+        return uniqueServiceName;
+    }
+    auto it = uniqueNameToReadableCache.find(uniqueServiceName);
+    if (it != uniqueNameToReadableCache.end())
+    {
+        return it->second;
+    }
+
+    try
+    {
+        sdbusplus::message_t msg = connection->new_method_call(
+            "xyz.openbmc_project.ObjectMapper",
+            "/xyz/openbmc_project/object_mapper",
+            "xyz.openbmc_project.ObjectMapper", "GetObject");
+        msg.append("/xyz/openbmc_project/mctp");
+        msg.append(interfaces);
+        auto reply = msg.call();
+        reply.read(services);
+
+        for (const auto& [serviceName, interfaces] : services)
+        {
+            std::string uniqueName;
+            msg = connection->new_method_call(
+                "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                "org.freedesktop.DBus", "GetNameOwner");
+            msg.append(serviceName.c_str());
+            reply = msg.call();
+            reply.read(uniqueName);
+            if (uniqueName == uniqueServiceName)
+            {
+                uniqueNameToReadableCache.emplace(uniqueServiceName,
+                                                  serviceName);
+                return serviceName;
+            }
+        }
+    }
+    catch (std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::INFO>(
+            (std::string("getReadableName ") + e.what()).c_str());
+    }
+    return uniqueServiceName;
 }
 
 } // namespace mctpw
