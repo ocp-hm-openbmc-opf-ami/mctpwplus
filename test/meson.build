@@ -8,7 +8,7 @@ if not gtest_dep.found()
             cm_gtest_main, threads])
 endif
 
-test_src_files = ['test_create_objects']
+test_src_files = ['test_create_objects', 'test_detect_endpoints']
 ex_targets = []
 foreach ex_src : test_src_files
     ex_src_files = [ex_src + '.cpp']
