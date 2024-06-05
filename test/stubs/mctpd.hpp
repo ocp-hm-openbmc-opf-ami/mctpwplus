@@ -41,6 +41,21 @@ class MCTPService : public SDBusServer
         SDBusServer::init();
         baseIntf = objectServer->add_unique_interface(
             "/xyz/openbmc_project/mctp", "xyz.openbmc_project.MCTP.Base");
+
+        baseIntf->register_method(
+            "SendReceiveMctpMessagePayload",
+            [this](uint8_t, std::vector<uint8_t> payload, uint16_t) {
+                uint8_t firstElement = payload.front();
+
+                std::vector<uint8_t> response = {2};
+                if (firstElement != 0)
+                {
+                    return response;
+                }
+                throw std::runtime_error(std::string(
+                    "SendReceiveMctpMessagePayload thrown an exception "));
+            });
+
         baseIntf->initialize();
     }
     void addEID(uint8_t eid, uint8_t supportedMsgTypeMask,
