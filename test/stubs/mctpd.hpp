@@ -53,7 +53,19 @@ class MCTPService : public SDBusServer
                     return response;
                 }
                 throw std::runtime_error(std::string(
-                    "SendReceiveMctpMessagePayload thrown an exception "));
+                    "Simulated error for SendReceive payload"));
+            });
+
+        baseIntf->register_method(
+            "SendMctpMessagePayload",
+            [this](uint8_t, uint8_t, bool, std::vector<uint8_t> payload) {
+                uint8_t firstElement = payload.front();
+                if (firstElement != 0)
+                {
+                    return 0;
+                }
+                throw std::runtime_error(std::string(
+                    "Simulated error for send payload "));
             });
 
         baseIntf->initialize();

@@ -1,6 +1,6 @@
-#include "stubs/mctp_constants.hpp"
-#include "stubs/mctpd.hpp"
-#include "stubs/object_mapper.hpp"
+#include "mctp_constants.hpp"
+#include "mctpd.hpp"
+#include "object_mapper.hpp"
 
 class StubProcesses
 {
