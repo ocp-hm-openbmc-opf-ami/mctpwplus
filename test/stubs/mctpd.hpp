@@ -52,8 +52,8 @@ class MCTPService : public SDBusServer
                 {
                     return response;
                 }
-                throw std::runtime_error(std::string(
-                    "Simulated error for SendReceive payload"));
+                throw std::runtime_error(
+                    std::string("Simulated error for SendReceive payload"));
             });
 
         baseIntf->register_method(
@@ -64,8 +64,30 @@ class MCTPService : public SDBusServer
                 {
                     return 0;
                 }
-                throw std::runtime_error(std::string(
-                    "Simulated error for send payload "));
+                throw std::runtime_error(
+                    std::string("Simulated error for send payload "));
+            });
+
+        baseIntf->register_method(
+            "RegisterResponder",
+            [this](uint8_t, std::vector<uint8_t> version) -> bool {
+                uint8_t firstElement = version.front();
+                if (firstElement != 0)
+                {
+                    return true;
+                }
+                throw std::runtime_error(std::string("Simulated error"));
+            });
+
+        baseIntf->register_method(
+            "RegisterVdpciResponder",
+            [this](uint16_t, uint16_t, std::vector<uint8_t> version) -> bool {
+                uint8_t firstElement = version.front();
+                if (firstElement != 0)
+                {
+                    return true;
+                }
+                throw std::runtime_error(std::string("Simulated error "));
             });
 
         baseIntf->initialize();

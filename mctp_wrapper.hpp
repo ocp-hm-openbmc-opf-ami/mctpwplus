@@ -35,7 +35,9 @@ using LocalEID = eid_t;
 
 struct DeviceID
 {
-    DeviceID() = default;
+    DeviceID() : id(0)
+    {
+    }
     constexpr DeviceID(LocalEID eidVal, NetworkID nwid) :
         id((nwid << 8) | eidVal)
     {
