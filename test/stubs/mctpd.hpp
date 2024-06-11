@@ -90,6 +90,9 @@ class MCTPService : public SDBusServer
                 throw std::runtime_error(std::string("Simulated error "));
             });
 
+        baseIntf->register_method("TriggerDeviceDiscovery",
+                                  [this]() { });
+
         baseIntf->initialize();
     }
     void addEID(uint8_t eid, uint8_t supportedMsgTypeMask,
