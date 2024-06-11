@@ -38,11 +38,6 @@ TEST(DetectEndPointsTest, Yield)
         io, [&mctpWrapper, &io](boost::asio::yield_context yield) {
             mctpWrapper.detectMctpEndpoints(yield);
             auto eidMap = mctpWrapper.getEndpointMap();
-            for (const auto& [eid, serviceName] : eidMap)
-            {
-                std::cout << "Eid " << static_cast<int>(eid) << " on "
-                          << serviceName.second << '\n';
-            }
             EXPECT_EQ(eidMap.size(), 2);
             EXPECT_TRUE(eidMap.contains(9));
             EXPECT_TRUE(eidMap.contains(10));
