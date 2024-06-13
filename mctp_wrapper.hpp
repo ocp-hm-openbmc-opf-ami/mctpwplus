@@ -279,10 +279,10 @@ class MCTPWrapper
         std::function<void(boost::system::error_code, void*)>;
     /* Endpoint map entry: LocalEID, pair(bus,service) */
     using EndpointMap =
-        std::unordered_map<eid_t, std::pair<unsigned, std::string>>;
+        std::unordered_map<eid_t, std::string>;
     /* Endpoint map entry: DeviceID, pair(bus,service) */
     using EndpointMapExtended =
-        std::unordered_map<DeviceID, std::pair<unsigned, std::string>>;
+        std::unordered_map<DeviceID, std::string>;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;

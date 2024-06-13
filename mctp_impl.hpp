@@ -278,12 +278,12 @@ class MCTPImpl
         socketIntf;
 
     // Get list of pair<bus, service_name_string> which expose mctp object
-    std::optional<std::vector<std::pair<unsigned, std::string>>>
+    std::optional<std::vector<std::string>>
         findBusByBindingType(boost::asio::yield_context yield);
     /* Return format: map<Eid, pair<bus, service_name_string>> */
     EndpointMapExtended buildMatchingEndpointMap(
         boost::asio::yield_context yield,
-        std::vector<std::pair<unsigned, std::string>>& buses);
+        std::vector< std::string> services);
     // Get bus id from servicename. Example: Returns 2 if device path is
     // /dev/i2c-2
     int getBusId(const std::string& serviceName);

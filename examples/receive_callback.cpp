@@ -67,8 +67,7 @@ int main(int argc, char* argv[])
         for (auto& i : ep)
         {
             std::cout << "EID:" << static_cast<unsigned>(i.first)
-                      << " Bus:" << i.second.first
-                      << " Service:" << i.second.second << std::endl;
+                      << " Service:" << i.second << std::endl;
         }
 
         // GetVersion request for PLDM Base

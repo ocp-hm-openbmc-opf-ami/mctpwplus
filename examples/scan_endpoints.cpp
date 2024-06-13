@@ -40,7 +40,7 @@ int main(int argc, char*[])
         for (const auto& [eid, serviceName] : epMap)
         {
             std::cout << "Eid " << static_cast<int>(eid) << " on "
-                      << serviceName.second << '\n';
+                      << serviceName << '\n';
         }
     };
 

@@ -113,8 +113,7 @@ int main(int argc, char* argv[])
         {
 
             std::cout << "EID:" << static_cast<unsigned>(i.first)
-                      << " Bus:" << i.second.first
-                      << " Service:" << i.second.second << '\n';
+                      << " Service:" << i.second << '\n';
         }
     };
 
