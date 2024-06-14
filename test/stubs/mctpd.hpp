@@ -90,8 +90,40 @@ class MCTPService : public SDBusServer
                 throw std::runtime_error(std::string("Simulated error "));
             });
 
-        baseIntf->register_method("TriggerDeviceDiscovery",
-                                  [this]() { });
+        baseIntf->register_method("TriggerDeviceDiscovery", [this]() {});
+
+        baseIntf->register_method(
+            "ReserveBandwidth",
+            [this](boost::asio::yield_context, uint8_t, const uint16_t) {
+                static uint8_t count = 0;
+                count++;
+                if (count == 1)
+                {
+                    return 0;
+                }
+                else if (count == 2)
+                {
+                    return -1;
+                }
+                throw std::runtime_error(
+                    std::string("Simulated error for ReserveBandwidth"));
+            });
+
+        baseIntf->register_method(
+            "ReleaseBandwidth", [this](boost::asio::yield_context, uint8_t) {
+                static uint8_t count = 0;
+                count++;
+                if (count == 1)
+                {
+                    return 0;
+                }
+                else if (count == 2)
+                {
+                    return -1;
+                }
+                throw std::runtime_error(
+                    std::string("Simulated error for ReleaseBandwidth "));
+            });
 
         baseIntf->initialize();
     }

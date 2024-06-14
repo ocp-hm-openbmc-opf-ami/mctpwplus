@@ -10,7 +10,8 @@ endif
 
 test_src_files = ['test_create_objects', 'test_detect_endpoints',
                   'test_send_recieve', 'test_send_payload',
-                  'test_register_responder', 'test_trigger_device_discovery']
+                  'test_register_responder', 'test_trigger_device_discovery',
+                  'test_reserve_release_bw']
 ex_targets = []
 foreach ex_src : test_src_files
     ex_src_files = [ex_src + '.cpp']
