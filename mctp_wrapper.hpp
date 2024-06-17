@@ -58,7 +58,7 @@ struct DeviceID
     constexpr NetworkID networkId() const
     {
         constexpr size_t eidBits = 8;
-        return id >> eidBits;
+        return static_cast<NetworkID>(id >> eidBits);
     }
 };
 } // namespace mctpw
@@ -390,8 +390,8 @@ class MCTPWrapper
      * @param timeout reserve bandwidth timeout
      * @return dbus send method call return value
      */
-    int reserveBandwidth(boost::asio::yield_context yield, 
-                         const DeviceID devID, const uint16_t timeout);
+    int reserveBandwidth(boost::asio::yield_context yield, const DeviceID devID,
+                         const uint16_t timeout);
 
     /**
      * @brief Release bandwidth for EID
@@ -534,7 +534,7 @@ class MCTPWrapper
     std::pair<boost::system::error_code, int>
         sendYield(boost::asio::yield_context& yield, const eid_t dstEId,
                   const uint8_t msgTag, const bool tagOwner,
-                  const ByteArray& request);    
+                  const ByteArray& request);
     /**
      * @brief Send MCTP request to devID and receive status of send operation
      *
