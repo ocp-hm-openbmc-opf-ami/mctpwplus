@@ -169,6 +169,15 @@ class MCTPService : public SDBusServer
             eidIntfMap[eid].emplace_back(std::move(pcieIntf));
         }
 
+        const std::string_view locationdCodeIntfName =
+            "xyz.openbmc_project.Inventory.Decorator.LocationCode";
+        auto locationCodeIntf = objectServer->add_unique_interface(
+            path, locationdCodeIntfName.data());
+        locationCodeIntf->register_property<std::string>("LocationCode",
+                                                         "PCIe_Slot_1");
+        locationCodeIntf->initialize();
+        eidIntfMap[eid].emplace_back(std::move(locationCodeIntf));
+
         auto epIntf = objectServer->add_unique_interface(
             path, "xyz.openbmc_project.MCTP.Endpoint");
         epIntf->initialize();
