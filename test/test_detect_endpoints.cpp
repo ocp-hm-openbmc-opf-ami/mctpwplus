@@ -1,4 +1,4 @@
-#include "../mctp_wrapper.hpp"
+#include "mctp_wrapper.hpp"
 #include <gtest/gtest.h>
 #include "stubs/stub_process.hpp"
 

@@ -125,6 +125,8 @@ class MCTPService : public SDBusServer
                     std::string("Simulated error for ReleaseBandwidth "));
             });
 
+        baseIntf->register_property<std::uint8_t>("Eid", 4);
+
         baseIntf->initialize();
     }
     void addEID(uint8_t eid, uint8_t supportedMsgTypeMask,
