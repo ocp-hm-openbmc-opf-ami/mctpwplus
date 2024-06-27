@@ -94,6 +94,6 @@ pkg.generate(
     extra_cflags: no_thread_flags,
 )
 
-if not get_option('tests').disabled()
+if (not meson.is_subproject() and get_option('tests').enabled())
   subdir('test')
 endif
