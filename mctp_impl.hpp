@@ -284,10 +284,6 @@ class MCTPImpl
     EndpointMapExtended buildMatchingEndpointMap(
         boost::asio::yield_context yield,
         std::vector< std::string> services);
-    // Get bus id from servicename. Example: Returns 2 if device path is
-    // /dev/i2c-2
-    int getBusId(const std::string& serviceName);
-
     void listenForMCTPChanges();
     std::unique_ptr<sdbusplus::bus::match::match> mctpChangesWatch{};
     void onMCTPEvent(sdbusplus::message::message& msg);

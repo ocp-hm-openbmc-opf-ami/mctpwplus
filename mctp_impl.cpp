@@ -219,69 +219,6 @@ boost::system::error_code
     return ec;
 }
 
-int MCTPImpl::getBusId(const std::string& serviceName)
-{
-    // TODO - the bus ID parameter is unused in the library, this can be cleaned
-    // up
-    try
-    {
-        int bus = -1;
-        static int i3cBusId = 0;
-        if (config.bindingType == mctpw::BindingType::mctpOverSmBus)
-        {
-            std::string pv = readPropertyValue<std::string>(
-                static_cast<sdbusplus::bus::bus&>(*connection), serviceName,
-                "/xyz/openbmc_project/mctp",
-                mctpw::MCTPWrapper::bindingToInterface.at(config.bindingType),
-                "BusPath");
-            // sample buspath like /dev/i2c-2
-            /* format of BusPath:path-bus */
-            std::vector<std::string> splitted;
-            boost::split(splitted, pv, boost::is_any_of("-"));
-            if (splitted.size() == 2)
-            {
-                try
-                {
-                    bus = std::stoi(splitted[1]);
-                }
-                catch (std::exception& e)
-                {
-                    throw std::runtime_error(
-                        std::string("Invalid buspath on ") + pv);
-                }
-            }
-        }
-        else if (config.bindingType == mctpw::BindingType::mctpOverPcieVdm)
-        {
-            bus = readPropertyValue<uint16_t>(
-                static_cast<sdbusplus::bus::bus&>(*connection), serviceName,
-                "/xyz/openbmc_project/mctp",
-                mctpw::MCTPWrapper::bindingToInterface.at(config.bindingType),
-                "BDF");
-        }
-        else if (config.bindingType == mctpw::BindingType::mctpOverI3C)
-        {
-            bus = i3cBusId++;
-        }
-        else if(config.bindingType == mctpw::BindingType::mctpOverAny)
-        {
-            bus = 1; // dummy BusID for BindingType any
-        }
-	else
-	{
-   	    throw std::invalid_argument("Unsupported binding type");
-	}
-        return bus;
-    }
-    catch (const std::exception& e)
-    {
-        throw boost::system::system_error(
-            boost::system::errc::make_error_code(boost::system::errc::io_error),
-            (std::string("Error in getting Bus property from ") + serviceName +
-             ". " + e.what()));
-    }
-}
-
 void MCTPImpl::addUniqueNameToMatchedServices(const std::string& serviceName,
                                               boost::asio::yield_context yield)
 {
