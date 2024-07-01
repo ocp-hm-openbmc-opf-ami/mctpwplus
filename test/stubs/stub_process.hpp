@@ -69,4 +69,3 @@ class StubProcesses
     std::shared_ptr<Process> mctpd;
     std::shared_ptr<Process> objectMapper;
 };
-

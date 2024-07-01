@@ -12,30 +12,31 @@ TEST(SendCall, SMBus)
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
     size_t callbackCount = 0;
-    auto sendCBSucess = [&callbackCount](boost::system::error_code err, const int response) {
+    auto sendCBSucess = [&callbackCount](boost::system::error_code err,
+                                         const int response) {
         const int actual = 0;
         callbackCount++;
         EXPECT_EQ(err.value(), boost::system::errc::success);
         EXPECT_EQ(response, actual);
     };
 
-    auto sendCBFailure = [&callbackCount](boost::system::error_code err, const int response) {
+    auto sendCBFailure = [&callbackCount](boost::system::error_code err,
+                                          const int response) {
         const int actual = -1;
         callbackCount++;
         EXPECT_EQ(err, boost::system::errc::io_error);
         EXPECT_EQ(err.value(), boost::system::errc::io_error);
         EXPECT_EQ(response, actual);
     };
-    auto sendCBFailureException = [&callbackCount](boost::system::error_code err,
-                                     const int response) {
-        const int actual = 0;
-        callbackCount++;
-        EXPECT_EQ(err.value(), boost::system::errc::invalid_argument);
-        EXPECT_EQ(response, actual);
-    };
+    auto sendCBFailureException =
+        [&callbackCount](boost::system::error_code err, const int response) {
+            const int actual = 0;
+            callbackCount++;
+            EXPECT_EQ(err.value(), boost::system::errc::invalid_argument);
+            EXPECT_EQ(response, actual);
+        };
 
-    boost::asio::spawn(io, [&](
-                               boost::asio::yield_context yield) {
+    boost::asio::spawn(io, [&](boost::asio::yield_context yield) {
         mctpWrapper.detectMctpEndpoints(yield);
 
         uint8_t eidValid = 10;

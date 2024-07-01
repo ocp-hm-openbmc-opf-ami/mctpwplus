@@ -25,8 +25,7 @@ int main(int argc, char* argv[])
 
     uint8_t eid =
         argc < 2 ? defaultEId : static_cast<uint8_t>(std::stoi(argv[1]));
-    uint8_t networkId =
-        argc < 3 ? 1 : static_cast<uint8_t>(std::stoi(argv[2]));
+    uint8_t networkId = argc < 3 ? 1 : static_cast<uint8_t>(std::stoi(argv[2]));
     using namespace mctpw;
     boost::asio::io_context io;
     mctpw::DeviceID deviceId(eid, networkId);

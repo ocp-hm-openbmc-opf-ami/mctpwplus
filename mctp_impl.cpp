@@ -239,11 +239,11 @@ void MCTPImpl::addUniqueNameToMatchedServices(const std::string& serviceName,
     this->matchedBuses.emplace(uniqueName);
 }
 
-std::optional<std::vector< std::string>>
+std::optional<std::vector<std::string>>
     MCTPImpl::findBusByBindingType(boost::asio::yield_context yield)
 {
     boost::system::error_code ec;
-    std::vector< std::string> buses;
+    std::vector<std::string> buses;
     DictType<std::string, std::vector<std::string>> services;
     std::vector<std::string> interfaces = {};
     try
@@ -273,7 +273,7 @@ std::optional<std::vector< std::string>>
         {
             try
             {
-                buses.emplace_back( service);
+                buses.emplace_back(service);
                 addUniqueNameToMatchedServices(service, yield);
             }
             catch (const std::exception& e)
@@ -297,11 +297,11 @@ std::optional<std::vector< std::string>>
 /* Return format:
  * map<Eid, pair<bus, service_name_string>>
  */
-MCTPImpl::EndpointMapExtended MCTPImpl::buildMatchingEndpointMap(
-    boost::asio::yield_context yield,
-    std::vector< std::string> services)
+MCTPImpl::EndpointMapExtended
+    MCTPImpl::buildMatchingEndpointMap(boost::asio::yield_context yield,
+                                       std::vector<std::string> services)
 {
-    std::unordered_map<DeviceID,  std::string> eids;
+    std::unordered_map<DeviceID, std::string> eids;
     for (auto& service : services)
     {
         boost::system::error_code ec;
@@ -313,14 +313,15 @@ MCTPImpl::EndpointMapExtended MCTPImpl::buildMatchingEndpointMap(
         // call DICT<OBJPATH,DICT<STRING,DICT<STRING,VARIANT>>>
         // objpath_interfaces_and_properties
         values = connection->yield_method_call<decltype(values)>(
-            yield, ec, service , "/xyz/openbmc_project/mctp",
+            yield, ec, service, "/xyz/openbmc_project/mctp",
             "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 
         if (ec)
         {
             phosphor::logging::log<phosphor::logging::level::WARNING>(
                 (std::string("Error getting managed objects on ") + service +
-                 ". Bus ").c_str());
+                 ". Bus ")
+                    .c_str());
             continue;
         }
         NetworkID nwid = getNetworkID(service);
@@ -357,7 +358,7 @@ MCTPImpl::EndpointMapExtended MCTPImpl::buildMatchingEndpointMap(
                         static const char* vdMsgTypeInterface =
                             "xyz.openbmc_project.MCTP.PCIVendorDefined";
                         auto vendorIdStr = readPropertyValue<std::string>(
-                            *connection, service , objectPath.str,
+                            *connection, service, objectPath.str,
                             vdMsgTypeInterface, "VendorID");
                         uint16_t vendorId = static_cast<uint16_t>(
                             std::stoi(vendorIdStr, nullptr, 16));
@@ -374,9 +375,8 @@ MCTPImpl::EndpointMapExtended MCTPImpl::buildMatchingEndpointMap(
                         {
                             auto msgTypes =
                                 readPropertyValue<std::vector<uint16_t>>(
-                                    *connection, service ,
-                                    objectPath.str, vdMsgTypeInterface,
-                                    "MessageTypeProperty");
+                                    *connection, service, objectPath.str,
+                                    vdMsgTypeInterface, "MessageTypeProperty");
                             auto itMsgType = std::find(
                                 msgTypes.begin(), msgTypes.end(),
                                 be16toh(config.vendorMessageType->value));
@@ -488,10 +488,9 @@ std::pair<boost::system::error_code, ByteArray>
     else
     {
         receiveResult.second = connection->yield_method_call<ByteArray>(
-            yield, receiveResult.first, it->second,
-            "/xyz/openbmc_project/mctp", "xyz.openbmc_project.MCTP.Base",
-            "SendReceiveMctpMessagePayload", devID.mctpEID(), request,
-            static_cast<uint16_t>(timeout.count()));
+            yield, receiveResult.first, it->second, "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "SendReceiveMctpMessagePayload",
+            devID.mctpEID(), request, static_cast<uint16_t>(timeout.count()));
     }
     return receiveResult;
 }
@@ -707,8 +706,8 @@ std::pair<boost::system::error_code, int>
 void MCTPImpl::addToEidMap(boost::asio::yield_context yield,
                            const std::string& serviceName)
 {
-    std::vector< std::string> services;
-    services.emplace_back( serviceName);
+    std::vector<std::string> services;
+    services.emplace_back(serviceName);
     auto eidMap = buildMatchingEndpointMap(yield, services);
     this->endpointMap.insert(eidMap.begin(), eidMap.end());
 }
@@ -744,8 +743,8 @@ std::optional<std::string>
     catch (const std::exception& e)
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
-            ("Error in getting Physical.Location property from " +
-             it->second + ". " + e.what())
+            ("Error in getting Physical.Location property from " + it->second +
+             ". " + e.what())
                 .c_str());
         return std::nullopt;
     }
@@ -1199,7 +1198,8 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
 
                    const ReconfigurationCallback& networkChangeCb,
                    const ReceiveMessageCallback& rxCb) :
-    connection(conn), config(configIn), networkChangeCallback(networkChangeCb),
+    connection(conn),
+    config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb)
 {
 }

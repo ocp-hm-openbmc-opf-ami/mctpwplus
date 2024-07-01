@@ -33,11 +33,11 @@ TEST(MCTPDynamicTest, Test1)
         };
 
         mctpWrapper.getOwnEIDs(callbackSuccess);
-	uint8_t validEID1 = 3;
-	uint8_t validEID2 = 4;
+        uint8_t validEID1 = 3;
+        uint8_t validEID2 = 4;
 
-        std::array<uint8_t, 4> data = 
-            {static_cast<uint8_t>(OnMCTPEvtEnum::addNewInterface), 0, 0, 0};
+        std::array<uint8_t, 4> data = {
+            static_cast<uint8_t>(OnMCTPEvtEnum::addNewInterface), 0, 0, 0};
         writeToProcess(data, yield, 1000);
 
         data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::propertiesChange);
@@ -73,7 +73,8 @@ int main(int argc, char** argv)
     sleep(1);
     ::testing::InitGoogleTest(&argc, argv);
     auto status = RUN_ALL_TESTS();
-    std::array<uint8_t, 4> data = {static_cast<uint8_t>(OnMCTPEvtEnum::stopIO), 0, 0, 0};
+    std::array<uint8_t, 4> data = {static_cast<uint8_t>(OnMCTPEvtEnum::stopIO),
+                                   0, 0, 0};
     mctpd->writeData(data);
     mctpd->wait();
     return status;

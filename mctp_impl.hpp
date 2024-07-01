@@ -281,9 +281,9 @@ class MCTPImpl
     std::optional<std::vector<std::string>>
         findBusByBindingType(boost::asio::yield_context yield);
     /* Return format: map<Eid, pair<bus, service_name_string>> */
-    EndpointMapExtended buildMatchingEndpointMap(
-        boost::asio::yield_context yield,
-        std::vector< std::string> services);
+    EndpointMapExtended
+        buildMatchingEndpointMap(boost::asio::yield_context yield,
+                                 std::vector<std::string> services);
     void listenForMCTPChanges();
     std::unique_ptr<sdbusplus::bus::match::match> mctpChangesWatch{};
     void onMCTPEvent(sdbusplus::message::message& msg);

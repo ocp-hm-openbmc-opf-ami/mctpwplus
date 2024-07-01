@@ -4,7 +4,6 @@
 #include <boost/asio.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/object_server.hpp>
-
 #include <unordered_map>
 
 using ServicesT = std::unordered_map<std::string, std::vector<std::string>>;
@@ -22,7 +21,8 @@ class ObjectMapper : public SDBusServer
             "/xyz/openbmc_project/object_mapper",
             "xyz.openbmc_project.ObjectMapper");
         objMapInterface->register_method(
-            "GetObject", [this](std::string, std::vector<std::string> interfaces) {
+            "GetObject",
+            [this](std::string, std::vector<std::string> interfaces) {
                 std::cout << "ObjectMapper method call" << '\n';
                 if (getObjectHandler)
                 {
@@ -40,7 +40,8 @@ class ObjectMapper : public SDBusServer
     {
         getObjectHandler = std::move(handler);
     }
-protected:
+
+  protected:
     std::unique_ptr<sdbusplus::asio::dbus_interface> objMapInterface;
     std::function<ServicesT()> getObjectHandler;
 };

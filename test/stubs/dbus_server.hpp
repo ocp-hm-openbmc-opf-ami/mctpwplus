@@ -15,7 +15,8 @@ class SDBusServer : public Task
     {
         connection = std::make_shared<sdbusplus::asio::connection>(io);
         connection->request_name(dbusName.data());
-        objectServer = std::make_shared<sdbusplus::asio::object_server>(connection, true);
+        objectServer =
+            std::make_shared<sdbusplus::asio::object_server>(connection, true);
         objectServer->add_manager(objManagerPath);
     }
     void task() override
@@ -32,7 +33,7 @@ class SDBusServer : public Task
         objManagerPath = path;
     }
 
-protected:
+  protected:
     boost::asio::io_context io;
     std::shared_ptr<sdbusplus::asio::connection> connection;
     std::shared_ptr<sdbusplus::asio::object_server> objectServer;

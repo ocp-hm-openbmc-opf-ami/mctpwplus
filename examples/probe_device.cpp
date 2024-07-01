@@ -57,11 +57,11 @@ int main(int argc, char* argv[])
         {"vendor", BindingType::vendorDefined}};
 
     std::map<std::string, MessageType> msgTypeArgs{
-        {"pldm", MessageType::pldm},    {"ncsi", MessageType::ncsi},
-        {"eth", MessageType::ethernet}, {"nvme", MessageType::nvmeMgmtMsg},
-        {"spdm", MessageType::spdm},    {"sec", MessageType::securedMsg},
-        {"cxlfmapi", MessageType::cxlFmApi},    {"cxlcci", MessageType::cxlCci},
-        {"vdpci", MessageType::vdpci},  {"vdiana", MessageType::vdiana}};
+        {"pldm", MessageType::pldm},         {"ncsi", MessageType::ncsi},
+        {"eth", MessageType::ethernet},      {"nvme", MessageType::nvmeMgmtMsg},
+        {"spdm", MessageType::spdm},         {"sec", MessageType::securedMsg},
+        {"cxlfmapi", MessageType::cxlFmApi}, {"cxlcci", MessageType::cxlCci},
+        {"vdpci", MessageType::vdpci},       {"vdiana", MessageType::vdiana}};
 
     app.add_option("-m,--msgtype", msgType, "MCTP Message type")
         ->transform(CLI::CheckedTransformer(msgTypeArgs, CLI::ignore_case))

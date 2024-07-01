@@ -22,7 +22,8 @@ using MctpPropertiesVariantT =
 template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
 
-enum class OnMCTPEvtEnum : uint8_t {
+enum class OnMCTPEvtEnum : uint8_t
+{
     stopIO = 0,
     addNewInterface = 1,
     propertiesChange = 2,
@@ -254,12 +255,11 @@ class MCTPDynamic : public MCTPSMBus
     void task() override
     {
         init();
-	// It is a dummy timer to keep io.run() alive
-        boost::asio::steady_timer timer(io,
-                boost::asio::chrono::seconds(mesonTestTimeout));
+        // It is a dummy timer to keep io.run() alive
+        boost::asio::steady_timer timer(
+            io, boost::asio::chrono::seconds(mesonTestTimeout));
 
-        timer.async_wait([](const boost::system::error_code& ) {
-        });
+        timer.async_wait([](const boost::system::error_code&) {});
         io.run_for(std::chrono::seconds(mesonTestTimeout));
         std::cerr << "Exit MCTPDynamic" << '\n';
     }
@@ -280,39 +280,42 @@ class MCTPDynamic : public MCTPSMBus
         {
             io.stop();
         }
-	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::addNewInterface)
+        else if (static_cast<OnMCTPEvtEnum>(data[0]) ==
+                 OnMCTPEvtEnum::addNewInterface)
         {
             MCTPSMBus::addSMbusInterface();
             MCTPSMBus::addEIDToDbus(data[1], 0b1111);
         }
-	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::propertiesChange)
+        else if (static_cast<OnMCTPEvtEnum>(data[0]) ==
+                 OnMCTPEvtEnum::propertiesChange)
         {
             MCTPSMBus::addMCTPInterfaces();
             MCTPSMBus::addEIDToDbus(data[1], 0b1111);
         }
-	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::removeEID)
+        else if (static_cast<OnMCTPEvtEnum>(data[0]) ==
+                 OnMCTPEvtEnum::removeEID)
         {
             eidIntfMap.clear();
         }
-	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::interfaceRemove)
+        else if (static_cast<OnMCTPEvtEnum>(data[0]) ==
+                 OnMCTPEvtEnum::interfaceRemove)
         {
             baseIntf.reset();
         }
-	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::messageRecieve)
+        else if (static_cast<OnMCTPEvtEnum>(data[0]) ==
+                 OnMCTPEvtEnum::messageRecieve)
         {
             MCTPSMBus::addSMbusInterface();
             MCTPSMBus::addMCTPInterfaces();
-	    auto msgSignal = baseIntf->new_signal("MessageReceivedSignal");
+            auto msgSignal = baseIntf->new_signal("MessageReceivedSignal");
             // simulate MessageReceiveSignal
             std::vector<uint8_t> response{1, 143, 2, 0};
             uint8_t msgTag = 0;
             bool tagOwner = 1;
             uint8_t msgType = 1; // PLDM
-            uint8_t eid = 9; // Using some random eid 
+            uint8_t eid = 9;     // Using some random eid
             msgSignal.append(msgType, eid, msgTag, tagOwner, response);
             msgSignal.signal_send();
         }
-
     }
 };
-

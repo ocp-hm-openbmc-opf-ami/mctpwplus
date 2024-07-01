@@ -30,7 +30,8 @@ void writeSocket(boost::asio::local::stream_protocol::socket& socket,
 
 SocketInterface::SocketInterface(const std::string_view& socketPath,
                                  boost::asio::io_context& io) :
-    socket(io), ioc(io)
+    socket(io),
+    ioc(io)
 {
     constexpr char unixSktAbsPath[] = "\0mctp";
     constexpr size_t unixSktAbsPathLen = sizeof(unixSktAbsPath) - 1;
@@ -269,4 +270,3 @@ void SocketInterface::sendAsync(const SocketInterface::SendCallback& callback,
     boost::asio::async_write(
         socket, boost::asio::buffer(request, request.size()), callback);
 }
-

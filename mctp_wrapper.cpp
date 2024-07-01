@@ -121,7 +121,8 @@ void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback, eid_t dstEId,
                                    const ByteArray& request,
                                    std::chrono::milliseconds timeout)
 {
-sendReceiveAsync(callback, DeviceID(dstEId, findNetworkId(dstEId)), request, timeout);
+    sendReceiveAsync(callback, DeviceID(dstEId, findNetworkId(dstEId)), request,
+                     timeout);
 }
 
 void MCTPWrapper::sendReceiveAsync(ReceiveCallback callback,
@@ -241,7 +242,8 @@ int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
 }
 
 int MCTPWrapper::reserveBandwidth(boost::asio::yield_context yield,
-const DeviceID extendedEID, const uint16_t timeout)
+                                  const DeviceID extendedEID,
+                                  const uint16_t timeout)
 {
     return pimpl->reserveBandwidth(yield, extendedEID, timeout);
 }
@@ -263,7 +265,8 @@ std::optional<std::string> MCTPWrapper::getDeviceLocation(const eid_t eid)
     return pimpl->getDeviceLocation(DeviceID(eid, 0));
 }
 
-std::optional<std::string> MCTPWrapper::getDeviceLocation(const DeviceID extendedEID)
+std::optional<std::string>
+    MCTPWrapper::getDeviceLocation(const DeviceID extendedEID)
 {
     return pimpl->getDeviceLocation(extendedEID);
 }
