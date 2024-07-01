@@ -140,8 +140,11 @@ class Process
                 // std::cout << "Data available " << retval << " isclosed " <<
                 // isClosed << '\n';
                 bytesRead = read(pipeHandles[0], buffer.data(), buffer.size());
-                std::span<uint8_t> dataSpan(buffer.begin(), bytesRead);
-                task->onData(dataSpan);
+                if (bytesRead > 0)
+                {
+                    std::span<uint8_t> dataSpan(buffer.begin(), bytesRead);
+                    task->onData(dataSpan);
+                }
             }
             else
             {

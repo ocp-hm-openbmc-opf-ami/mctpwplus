@@ -12,7 +12,7 @@ test_src_files = ['test_create_objects', 'test_detect_endpoints',
                   'test_send_recieve', 'test_send_payload',
                   'test_register_responder', 'test_trigger_device_discovery',
                   'test_reserve_release_bw', 'test_get_device_location',
-                  'test_get_own_eid']
+                  'test_get_own_eid', 'test_on_event']
 
 ex_targets = []
 foreach ex_src : test_src_files

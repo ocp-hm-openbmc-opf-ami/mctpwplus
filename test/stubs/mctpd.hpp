@@ -13,12 +13,23 @@
 #include <unordered_map>
 #include <vector>
 
+constexpr uint8_t mesonTestTimeout = 15;
+
 using MctpPropertiesVariantT =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
                  uint8_t, std::vector<uint8_t>, std::vector<uint16_t>>;
 
 template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
+
+enum class OnMCTPEvtEnum : uint8_t {
+    stopIO = 0,
+    addNewInterface = 1,
+    propertiesChange = 2,
+    removeEID = 3,
+    interfaceRemove = 4,
+    messageRecieve = 5
+};
 
 class MCTPService : public SDBusServer
 {
@@ -33,12 +44,20 @@ class MCTPService : public SDBusServer
     {
         init();
         addAllEIDS();
-        io.run();
+        io.run_for(std::chrono::seconds(mesonTestTimeout));
     }
     void init() override
     {
+        initSDBus();
+        addMCTPInterfaces();
+    }
+    void initSDBus()
+    {
         setObjManagerPath("/xyz/openbmc_project/mctp");
         SDBusServer::init();
+    }
+    void addMCTPInterfaces()
+    {
         baseIntf = objectServer->add_unique_interface(
             "/xyz/openbmc_project/mctp", "xyz.openbmc_project.MCTP.Base");
 
@@ -205,6 +224,10 @@ class MCTPSMBus : public MCTPService
     void init() override
     {
         MCTPService::init();
+        addSMbusInterface();
+    }
+    void addSMbusInterface()
+    {
         smbusIntf = objectServer->add_unique_interface(
             "/xyz/openbmc_project/mctp",
             "xyz.openbmc_project.MCTP.Binding.SMBus");
@@ -215,3 +238,81 @@ class MCTPSMBus : public MCTPService
   protected:
     std::unique_ptr<sdbusplus::asio::dbus_interface> smbusIntf;
 };
+
+class MCTPDynamic : public MCTPSMBus
+{
+  public:
+    MCTPDynamic() : MCTPSMBus()
+    {
+    }
+
+    void init() override
+    {
+        initSDBus();
+    }
+
+    void task() override
+    {
+        init();
+	// It is a dummy timer to keep io.run() alive
+        boost::asio::steady_timer timer(io,
+                boost::asio::chrono::seconds(mesonTestTimeout));
+
+        timer.async_wait([](const boost::system::error_code& ) {
+        });
+        io.run_for(std::chrono::seconds(mesonTestTimeout));
+        std::cerr << "Exit MCTPDynamic" << '\n';
+    }
+
+    void onData(std::span<uint8_t> data) override
+    {
+        std::cerr << "Data received" << '\n';
+        for (const auto& byte : data)
+        {
+            std::cout << static_cast<int>(byte) << " ";
+        }
+        std::cout << std::endl;
+        if (data.size() < sizeof(uint32_t))
+        {
+            return;
+        }
+        if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::stopIO)
+        {
+            io.stop();
+        }
+	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::addNewInterface)
+        {
+            MCTPSMBus::addSMbusInterface();
+            MCTPSMBus::addEIDToDbus(data[1], 0b1111);
+        }
+	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::propertiesChange)
+        {
+            MCTPSMBus::addMCTPInterfaces();
+            MCTPSMBus::addEIDToDbus(data[1], 0b1111);
+        }
+	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::removeEID)
+        {
+            eidIntfMap.clear();
+        }
+	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::interfaceRemove)
+        {
+            baseIntf.reset();
+        }
+	else if (static_cast<OnMCTPEvtEnum>(data[0]) == OnMCTPEvtEnum::messageRecieve)
+        {
+            MCTPSMBus::addSMbusInterface();
+            MCTPSMBus::addMCTPInterfaces();
+	    auto msgSignal = baseIntf->new_signal("MessageReceivedSignal");
+            // simulate MessageReceiveSignal
+            std::vector<uint8_t> response{1, 143, 2, 0};
+            uint8_t msgTag = 0;
+            bool tagOwner = 1;
+            uint8_t msgType = 1; // PLDM
+            uint8_t eid = 9; // Using some random eid 
+            msgSignal.append(msgType, eid, msgTag, tagOwner, response);
+            msgSignal.signal_send();
+        }
+
+    }
+};
+

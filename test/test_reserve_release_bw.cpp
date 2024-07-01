@@ -32,7 +32,7 @@ TEST(ReserveBandwidth, mctpOverSmBus)
         io.stop();
     });
 
-    io.run();
+    io.run_for(std::chrono::seconds(15));
 }
 
 TEST(RealeaseBandwidth, mctpOverSmBus)
@@ -64,7 +64,7 @@ TEST(RealeaseBandwidth, mctpOverSmBus)
         io.stop();
     });
 
-    io.run();
+    io.run_for(std::chrono::seconds(15));
 }
 
 int main(int argc, char** argv)

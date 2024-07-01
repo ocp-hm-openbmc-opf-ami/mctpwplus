@@ -1,4 +1,4 @@
-#include "../mctp_wrapper.hpp"
+#include "mctp_wrapper.hpp"
 #include "stubs/stub_process.hpp"
 
 #include <gtest/gtest.h>
@@ -24,7 +24,7 @@ TEST(TriggerDeviceDiscovery, PcieVdm)
         io.stop();
     });
 
-    io.run();
+    io.run_for(std::chrono::seconds(15));
 }
 
 int main(int argc, char** argv)

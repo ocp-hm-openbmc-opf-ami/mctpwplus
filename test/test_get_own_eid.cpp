@@ -43,7 +43,7 @@ TEST(GetOwnEIDs, SMBus)
         io.stop();
     });
 
-    io.run();
+    io.run_for(std::chrono::seconds(mesonTestTimeout));
     EXPECT_EQ(callbackCount, 1);
 }
 

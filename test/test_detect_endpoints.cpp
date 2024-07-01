@@ -22,7 +22,7 @@ TEST(DetectEndPointsTest, Async)
 
             io.stop();
         });
-    io.run();
+    io.run_for(std::chrono::seconds(mesonTestTimeout));
     std::cout << "Wrapper exited" << '\n';
 }
 
@@ -43,7 +43,7 @@ TEST(DetectEndPointsTest, Yield)
             EXPECT_TRUE(eidMap.contains(10));
             io.stop();
         });
-    io.run();
+    io.run_for(std::chrono::seconds(mesonTestTimeout));
 }
 
 int main(int argc, char** argv)

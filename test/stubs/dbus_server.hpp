@@ -18,12 +18,12 @@ class SDBusServer : public Task
         objectServer = std::make_shared<sdbusplus::asio::object_server>(connection, true);
         objectServer->add_manager(objManagerPath);
     }
-    virtual void task()
+    void task() override
     {
         init();
-        io.run();
+        io.run_for(std::chrono::seconds(15));
     }
-    virtual void onData(std::span<uint8_t>)
+    void onData(std::span<uint8_t>) override
     {
         io.stop();
     }

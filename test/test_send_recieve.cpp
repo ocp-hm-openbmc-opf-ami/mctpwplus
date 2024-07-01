@@ -1,4 +1,4 @@
-#include "../mctp_wrapper.hpp"
+#include "mctp_wrapper.hpp"
 #include "stubs/stub_process.hpp"
 
 #include <gtest/gtest.h>
@@ -90,7 +90,7 @@ TEST(SendReciveCall, SMBus)
         io.stop();
     });
 
-    io.run();
+    io.run_for(std::chrono::seconds(15));
     EXPECT_EQ(callbackCount, 3);
 }
 

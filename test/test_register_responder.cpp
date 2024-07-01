@@ -39,7 +39,7 @@ TEST(RegisterResponder, SMBus)
 
         io.stop();
     });
-    io.run();
+    io.run_for(std::chrono::seconds(15));
 }
 
 int main(int argc, char** argv)
