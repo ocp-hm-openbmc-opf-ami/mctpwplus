@@ -12,7 +12,7 @@ test_src_files = ['test_create_objects', 'test_detect_endpoints',
                   'test_send_recieve', 'test_send_payload',
                   'test_register_responder', 'test_trigger_device_discovery',
                   'test_reserve_release_bw', 'test_get_device_location',
-                  'test_get_own_eid', 'test_on_event']
+                  'test_get_own_eid', 'test_on_event', 'test_socket_if']
 
 ex_targets = []
 foreach ex_src : test_src_files
@@ -20,5 +20,6 @@ foreach ex_src : test_src_files
     ex_name = ex_src.replace('test_', '')
     ex_exe = executable(ex_name, ex_src_files, dependencies: [mctpwplus_nothread_dep, gtest_dep])
     ex_targets += ex_exe
-    test( ex_src.replace('_', ' '), ex_exe, is_parallel : false)
+    test( ex_src.replace('_', ' '), ex_exe, is_parallel : false, 
+    timeout : 5)
 endforeach
