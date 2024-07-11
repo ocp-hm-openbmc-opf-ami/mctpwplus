@@ -88,6 +88,8 @@ class MCTPImpl
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
 
+    using HandshakeCallback = std::function<void(boost::system::error_code)>;
+
     std::shared_ptr<sdbusplus::asio::connection> connection;
     mctpw::MCTPConfiguration config{};
     /// Callback to be executed when a network change occurs
@@ -237,6 +239,21 @@ class MCTPImpl
     void sendAsync(const SendCallback& callback, const DeviceID devID,
                    const uint8_t msgTag, const bool tagOwner,
                    const ByteArray& request);
+
+    /**
+     * @brief Initiates handshake between client and SPDM socket server.
+     *
+     * This function initiates the handshake process between the client and
+     * SPDM socket server for a secure connection. Once the server initializes
+     * and sets the secure connection , it calls this method and then the client
+     * starts listening and proceeds with socket initialization.
+     *
+     * @param initiateHandshakeCallback The callback function to be invoked for
+     * initiating the handshake with the SPDM server.
+     * @param deviceID The DeviceID of the device to initiate the handshake
+     * with.
+     */
+    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback, DeviceID deviceID);
 
     /**
      * @brief Send MCTP request to dstEId and receive status of send operation

@@ -1183,6 +1183,33 @@ void MCTPImpl::setExtendedReceiveCallback(
     this->extReceiveCallback = std::move(callback);
 }
 
+void MCTPImpl::initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
+                                     DeviceID devID)
+{
+    auto it = this->endpointMap.find(devID);
+
+    if (this->endpointMap.end() == it)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            "initiateSPDMHandshake: Device ID not found in endpoint map",
+            phosphor::logging::entry("EID=%d", devID.id));
+
+        boost::system::error_code ec =
+            boost::system::errc::make_error_code(boost::system::errc::io_error);
+
+        if (initiateHandshakeCallback)
+        {
+            initiateHandshakeCallback(ec);
+        }
+        return;
+    }
+
+    connection->async_method_call(initiateHandshakeCallback, it->second,
+                                  "/xyz/openbmc_project/mctp",
+                                  "xyz.openbmc_project.MCTP.Base",
+                                  "InitiateHandshake", devID.id);
+}
+
 MCTPImpl::MCTPImpl(boost::asio::io_context& ioContext,
                    const MCTPConfiguration& configIn,
                    const ReconfigurationCallback& networkChangeCb,

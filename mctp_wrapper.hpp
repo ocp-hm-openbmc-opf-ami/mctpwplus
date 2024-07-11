@@ -285,6 +285,8 @@ class MCTPWrapper
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
 
+    using HandshakeCallback = std::function<void(boost::system::error_code)>;
+
     /**
      * @brief Construct a new MCTPWrapper object
      *
@@ -607,6 +609,22 @@ class MCTPWrapper
      * @param callback Callback function
      */
     void setExtendedReceiveCallback(ExtendedReceiveMessageCallback callback);
+
+
+    /**
+     * @brief Initiates handshake between client and SPDM socket server.
+     *
+     * This function initiates the handshake process between the client and
+     * SPDM socket server for a secure connection. Once the server initializes
+     * and sets the secure connection , it calls this method and then the client
+     * starts listening and proceeds with socket initialization.
+     *
+     * @param initiateHandshakeCallback The callback function to be invoked for
+     * initiating the handshake with the SPDM server.
+     * @param deviceID The DeviceID of the device to initiate the handshake
+     * with.
+     */
+    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback, DeviceID deviceID);
 
     /// MCTP Configuration to store message type and vendor defined properties
     MCTPConfiguration config{};

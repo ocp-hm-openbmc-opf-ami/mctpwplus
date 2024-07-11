@@ -281,3 +281,10 @@ void MCTPWrapper::setExtendedReceiveCallback(
 {
     pimpl->setExtendedReceiveCallback(callback);
 }
+
+void MCTPWrapper::initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
+                                        DeviceID extendedEID)
+{
+    pimpl->initiateSPDMHandshake(initiateHandshakeCallback, extendedEID);
+}
+
