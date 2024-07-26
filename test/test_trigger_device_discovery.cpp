@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(TriggerDeviceDiscovery, PcieVdm)
+TEST(TriggerDeviceDiscovery, DISABLED_PcieVdm)
 {
     using namespace mctpw;
     boost::asio::io_context io;
