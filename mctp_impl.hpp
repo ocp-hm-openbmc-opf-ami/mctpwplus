@@ -289,7 +289,6 @@ class MCTPImpl
     std::unordered_set<std::string> matchedBuses;
     std::vector<VersionFields> responderVersions;
     std::unordered_map<std::string, uint8_t> networkIDCache;
-    bool isInitialisationsDone = false;
     std::unordered_map<std::string, std::string> uniqueNameToReadableCache;
     std::unordered_map<std::string, std::shared_ptr<SocketInterface>>
         socketIntf;
@@ -298,7 +297,7 @@ class MCTPImpl
     std::optional<std::vector<std::string>>
         findBusByBindingType(boost::asio::yield_context yield);
     /* Return format: map<Eid, pair<bus, service_name_string>> */
-    EndpointMapExtended
+    void
         buildMatchingEndpointMap(boost::asio::yield_context yield,
                                  std::vector<std::string> services);
     void listenForMCTPChanges();

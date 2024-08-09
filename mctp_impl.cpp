@@ -171,10 +171,9 @@ boost::system::error_code
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
     auto bus_vector = findBusByBindingType(yield);
-    this->isInitialisationsDone = true;
     if (bus_vector)
     {
-        endpointMap = buildMatchingEndpointMap(yield, bus_vector.value());
+        buildMatchingEndpointMap(yield, bus_vector.value());
         if (useSocket)
         {
             for (auto& it : endpointMap)
@@ -297,11 +296,10 @@ std::optional<std::vector<std::string>>
 /* Return format:
  * map<Eid, pair<bus, service_name_string>>
  */
-MCTPImpl::EndpointMapExtended
+void
     MCTPImpl::buildMatchingEndpointMap(boost::asio::yield_context yield,
                                        std::vector<std::string> services)
 {
-    std::unordered_map<DeviceID, std::string> eids;
     for (auto& service : services)
     {
         boost::system::error_code ec;
@@ -412,7 +410,7 @@ MCTPImpl::EndpointMapExtended
                     /* take the last element and convert it to eid */
                     uint8_t eid = static_cast<eid_t>(
                         std::stoi(splitted[splitted.size() - 1]));
-                    eids[DeviceID(eid, nwid)] = service;
+                    this->endpointMap[DeviceID(eid, nwid)] = service;
                 }
             }
             catch (std::exception& e)
@@ -421,7 +419,6 @@ MCTPImpl::EndpointMapExtended
             }
         }
     }
-    return eids;
 }
 
 void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID devID,
@@ -707,9 +704,8 @@ void MCTPImpl::addToEidMap(boost::asio::yield_context yield,
                            const std::string& serviceName)
 {
     std::vector<std::string> services;
-    services.emplace_back(serviceName);
-    auto eidMap = buildMatchingEndpointMap(yield, services);
-    this->endpointMap.insert(eidMap.begin(), eidMap.end());
+    services.emplace_back(this->getReadableName(serviceName));
+    buildMatchingEndpointMap(yield, services);
 }
 
 size_t MCTPImpl::eraseDevice(DeviceID extendedEID)
@@ -1134,13 +1130,6 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
 
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         (std::string("MCTP general event from ") + msg.get_sender()).c_str());
-
-    if (!this->isInitialisationsDone)
-    {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
-            "Event will be dropped since endpoint discovery not done");
-        return;
-    }
 
     auto member = msg.get_member();
     if (member == intfAdded)
