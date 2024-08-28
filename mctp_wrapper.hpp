@@ -346,6 +346,14 @@ class MCTPWrapper
     boost::system::error_code
         detectMctpEndpoints(boost::asio::yield_context yield);
     /**
+     * @brief This method or its async variant must be called before accessing
+     * any send receive functions. It scan and detect all mctp endpoints exposed
+     * on dbus. This method is a blocking call.
+     *
+     * @return boost::system::error_code
+     */
+    boost::system::error_code detectMctpEndpoints();
+    /**
      * @brief Get a reference to internaly maintained EndpointMap without
      * network id
      *

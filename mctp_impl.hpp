@@ -129,7 +129,7 @@ class MCTPImpl
      * @return boost::system::error_code
      */
     boost::system::error_code
-        detectMctpEndpoints(boost::asio::yield_context yield);
+        detectMctpEndpoints(std::optional<boost::asio::yield_context> yield);
     /**
      * @brief Get a reference to internaly maintained EndpointMap
      *
@@ -295,10 +295,10 @@ class MCTPImpl
 
     // Get list of pair<bus, service_name_string> which expose mctp object
     std::optional<std::vector<std::string>>
-        findBusByBindingType(boost::asio::yield_context yield);
+        findBusByBindingType(std::optional<boost::asio::yield_context> yield = std::nullopt);
     /* Return format: map<Eid, pair<bus, service_name_string>> */
     void
-        buildMatchingEndpointMap(boost::asio::yield_context yield,
+        buildMatchingEndpointMap(std::optional<boost::asio::yield_context> yield,
                                  std::vector<std::string> services);
     void listenForMCTPChanges();
     std::unique_ptr<sdbusplus::bus::match::match> mctpChangesWatch{};
@@ -312,7 +312,7 @@ class MCTPImpl
     void onOwnEIDChange(std::string serviceName, eid_t eid);
     void onEIDRemoved(const std::string& serviceName, DeviceID eid);
     void addUniqueNameToMatchedServices(const std::string& serviceName,
-                                        boost::asio::yield_context yield);
+                                        std::optional<boost::asio::yield_context> yield);
 
     void registerListeners(const std::string& serviceName);
     void unRegisterListeners(const std::string& serviceName);

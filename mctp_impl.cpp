@@ -15,6 +15,7 @@
 */
 
 #include "mctp_impl.hpp"
+#include "utils.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/container/flat_map.hpp>
@@ -28,29 +29,6 @@ using DictType = boost::container::flat_map<T1, T2>;
 using MctpPropertiesVariantType =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
                  uint8_t, std::vector<uint8_t>>;
-
-// Note: This is a blocking method call. Implement your own yield variants
-// if nonblocking method is needed
-template <typename Property>
-static Property
-    readPropertyValue(sdbusplus::bus::bus& bus, const std::string& service,
-                      const std::string& path, const std::string& interface,
-                      const std::string& property)
-{
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
-        (std::string("Reading ") + service + " " + path + " " + interface +
-         " " + property)
-            .c_str());
-    auto msg = bus.new_method_call(service.c_str(), path.c_str(),
-                                   "org.freedesktop.DBus.Properties", "Get");
-
-    msg.append(interface.c_str(), property.c_str());
-    auto reply = bus.call(msg);
-
-    std::variant<Property> v;
-    reply.read(v);
-    return std::get<Property>(v);
-}
 
 namespace mctpw
 {
@@ -162,7 +140,7 @@ int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
 }
 
 boost::system::error_code
-    MCTPImpl::detectMctpEndpoints(boost::asio::yield_context yield)
+    MCTPImpl::detectMctpEndpoints(std::optional<boost::asio::yield_context> yield = std::nullopt)
 {
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         "Detecting mctp endpoints");
@@ -219,27 +197,27 @@ boost::system::error_code
 }
 
 void MCTPImpl::addUniqueNameToMatchedServices(const std::string& serviceName,
-                                              boost::asio::yield_context yield)
+                                              std::optional<boost::asio::yield_context> yield)
 {
-    boost::system::error_code ec;
-    std::string uniqueName = connection->yield_method_call<std::string>(
-        yield, ec, "org.freedesktop.DBus", "/org/freedesktop/DBus",
-        "org.freedesktop.DBus", "GetNameOwner", serviceName.c_str());
+    auto uniqueName = mctpw::methodCall<std::string>(
+        *connection,
+        "org.freedesktop.DBus", "/org/freedesktop/DBus",
+        "org.freedesktop.DBus", "GetNameOwner", yield, serviceName.c_str());
 
-    if (ec)
+    if (!uniqueName)
     {
         std::string errMsg = std::string("GetUniqueName unsuccesful for ") +
-                             serviceName + ". " + ec.message();
+                             serviceName + ". " + uniqueName.error().message();
         phosphor::logging::log<phosphor::logging::level::WARNING>(
             errMsg.c_str());
         uniqueName = serviceName;
     }
 
-    this->matchedBuses.emplace(uniqueName);
+    this->matchedBuses.emplace(uniqueName.value());
 }
 
 std::optional<std::vector<std::string>>
-    MCTPImpl::findBusByBindingType(boost::asio::yield_context yield)
+    MCTPImpl::findBusByBindingType(std::optional<boost::asio::yield_context> yield)
 {
     boost::system::error_code ec;
     std::vector<std::string> buses;
@@ -255,16 +233,19 @@ std::optional<std::vector<std::string>>
         }
         // find the services, with their interfaces, that implement a
         // certain object path
-        services = connection->yield_method_call<decltype(services)>(
-            yield, ec, "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetObject",
-            "/xyz/openbmc_project/mctp", interfaces);
-
-        if (ec)
+        
+        auto getObjects = mctpw::methodCall<decltype(services)>(*connection, "xyz.openbmc_project.ObjectMapper",
+                                        "/xyz/openbmc_project/object_mapper",
+                                        "xyz.openbmc_project.ObjectMapper", "GetObject", yield,
+                                        "/xyz/openbmc_project/mctp", interfaces);
+        if (getObjects)
+        {
+            services = getObjects.value();
+        }
+        else
         {
             throw std::runtime_error(
-                (std::string("Error getting mctp services. ") + ec.message())
+                (std::string("Error getting mctp services. ") + getObjects.error().message())
                     .c_str());
         }
 
@@ -297,7 +278,7 @@ std::optional<std::vector<std::string>>
  * map<Eid, pair<bus, service_name_string>>
  */
 void
-    MCTPImpl::buildMatchingEndpointMap(boost::asio::yield_context yield,
+    MCTPImpl::buildMatchingEndpointMap(std::optional<boost::asio::yield_context> yield,
                                        std::vector<std::string> services)
 {
     for (auto& service : services)
@@ -310,18 +291,24 @@ void
         // get all objects, interfaces and properties in a single method
         // call DICT<OBJPATH,DICT<STRING,DICT<STRING,VARIANT>>>
         // objpath_interfaces_and_properties
-        values = connection->yield_method_call<decltype(values)>(
-            yield, ec, service, "/xyz/openbmc_project/mctp",
-            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
-
-        if (ec)
+        
+        auto getManagedObjects = mctpw::methodCall<decltype(values)>(*connection,
+            service, "/xyz/openbmc_project/mctp",
+            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", yield);
+        
+        if (getManagedObjects)
+        {
+            values = getManagedObjects.value();
+        }
+        else
         {
             phosphor::logging::log<phosphor::logging::level::WARNING>(
                 (std::string("Error getting managed objects on ") + service +
-                 ". Bus ")
+                ". Bus ")
                     .c_str());
             continue;
         }
+
         NetworkID nwid = getNetworkID(service);
         for (const auto& [objectPath, interfaces] : values)
         {
@@ -728,7 +715,7 @@ std::optional<std::string>
     try
     {
         auto locationCode = readPropertyValue<std::string>(
-            static_cast<sdbusplus::bus::bus&>(*connection), it->second,
+            *connection, it->second,
             "/xyz/openbmc_project/mctp/device/" +
                 std::to_string(extendedEID.mctpEID()),
             "xyz.openbmc_project.Inventory.Decorator.LocationCode",

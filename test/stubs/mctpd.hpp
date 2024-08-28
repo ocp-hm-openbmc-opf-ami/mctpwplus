@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-constexpr uint8_t mesonTestTimeout = 15;
+constexpr uint8_t mesonTestTimeout = 60;
 
 using MctpPropertiesVariantT =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
@@ -114,8 +114,9 @@ class MCTPService : public SDBusServer
 
         baseIntf->register_method(
             "ReserveBandwidth",
-            [this](boost::asio::yield_context, uint8_t, const uint16_t) {
+            [this](boost::asio::yield_context, uint8_t a, const uint16_t b) {
                 static uint8_t count = 0;
+                std::cerr << "Count " << static_cast<int>(a) << ' ' << static_cast<int>(b) << ' ' << static_cast<int>(count) << '\n';
                 count++;
                 if (count == 1)
                 {

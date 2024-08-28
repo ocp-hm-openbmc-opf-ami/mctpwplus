@@ -90,7 +90,18 @@ boost::system::error_code
 {
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
+    
     ec = pimpl->detectMctpEndpoints(yield);
+
+    return ec;
+}
+
+boost::system::error_code
+    MCTPWrapper::detectMctpEndpoints()
+{
+    boost::system::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::success);
+    ec = pimpl->detectMctpEndpoints(std::nullopt);
 
     return ec;
 }

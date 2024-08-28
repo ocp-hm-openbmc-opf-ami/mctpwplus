@@ -47,6 +47,24 @@ TEST(DetectEndPointsTest, Yield)
     io.run_for(std::chrono::seconds(mesonTestTimeout));
 }
 
+
+TEST(DetectEndPointsTest, Sync)
+{
+    using namespace mctpw;
+    MCTPConfiguration config(mctpw::MessageType::pldm,
+                             mctpw::BindingType::mctpOverSmBus);
+    boost::asio::io_context io;
+    MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
+
+    mctpWrapper.detectMctpEndpoints();
+    auto eidMap = mctpWrapper.getEndpointMap();
+    EXPECT_EQ(eidMap.size(), 2);
+    EXPECT_TRUE(eidMap.contains(9));
+    EXPECT_TRUE(eidMap.contains(10));
+    EXPECT_EQ(eidMap[9], service_names::mctpSMBus());
+    io.stop();
+}
+
 int main(int argc, char** argv)
 {
     StubProcesses proc;
