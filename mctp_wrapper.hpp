@@ -39,7 +39,7 @@ struct DeviceID
     {
     }
     constexpr DeviceID(LocalEID eidVal, NetworkID nwid) :
-        id((nwid << 8) | eidVal)
+        id(static_cast<uint32_t>((nwid << 8) | eidVal))
     {
     }
     uint32_t id;
