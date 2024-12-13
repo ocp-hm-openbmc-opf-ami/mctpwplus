@@ -22,7 +22,7 @@ TEST(TriggerDeviceDiscovery, DISABLED_PcieVdm)
         EXPECT_NO_THROW(mctpWrapper.triggerMCTPDeviceDiscovery(eidInvalid));
 
         io.stop();
-    });
+    }, {});
 
     io.run_for(std::chrono::seconds(15));
 }

@@ -30,7 +30,7 @@ TEST(ReserveBandwidth, mctpOverSmBus)
         EXPECT_EQ(statusFail, -1);
 
         io.stop();
-    });
+    }, {});
 
     io.run_for(std::chrono::seconds(15));
 }
@@ -62,7 +62,7 @@ TEST(RealeaseBandwidth, mctpOverSmBus)
         EXPECT_EQ(statusFail, -1);
 
         io.stop();
-    });
+    }, {});
 
     io.run_for(std::chrono::seconds(15));
 }

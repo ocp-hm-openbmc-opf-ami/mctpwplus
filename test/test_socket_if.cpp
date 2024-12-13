@@ -44,7 +44,7 @@ void requester()
         {
             FAIL();
         }
-    });
+    }, {});
 
     sktInt->sendReceiveAsync(
         [&req2](boost::system::error_code ec, const std::vector<uint8_t>&) {
@@ -105,7 +105,7 @@ void waitForRequest(
                 boost::asio::write(
                     *resSocket,
                     boost::asio::buffer(reqBuf.data(), reqBuf.size()));
-            });
+            }, {});
 
             waitForRequest(resSocket, resBuffer);
         });

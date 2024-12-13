@@ -26,7 +26,7 @@ TEST(GetDeviceLocation, SMBus)
         EXPECT_FALSE(locCode);
 
         io.stop();
-    });
+    }, {});
     io.run_for(std::chrono::seconds(mesonTestTimeout));
 }
 

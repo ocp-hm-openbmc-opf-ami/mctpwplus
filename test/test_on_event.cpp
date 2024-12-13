@@ -55,7 +55,7 @@ TEST(MCTPDynamicTest, Test1)
 
         writeToProcess(data, yield);
         io.stop();
-    });
+    }, {});
 
     io.run_for(std::chrono::seconds(mesonTestTimeout));
 }

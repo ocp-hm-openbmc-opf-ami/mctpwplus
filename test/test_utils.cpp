@@ -75,7 +75,7 @@ TEST_F(TestUtils, MethodCallWithReturn)
         }
         cbCalled = true;
         this->io->stop();
-    });
+    }, {});
 
     int status = mctpw::methodCall<int>(*conn, service, objectPath, interface,
                                         method, arg1, arg2);
@@ -105,7 +105,7 @@ TEST_F(TestUtils, MethodCallVoid)
             }
             cbCalled = true;
             this->io->stop();
-        });
+        }, {});
 
     EXPECT_NO_THROW(mctpw::methodCall(*conn, service, objectPath, interface,
                                       "TriggerDeviceDiscovery"));
@@ -132,7 +132,7 @@ TEST_F(TestUtils, ReadProperty)
                            }
                            cbCalled = true;
                            this->io->stop();
-                       });
+                       }, {});
 
     auto eid =
         mctpw::readPropertyValue<uint8_t>(*conn, service, objectPath, interface, "Eid");

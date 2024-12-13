@@ -88,7 +88,7 @@ TEST(SendReciveCall, SMBus)
             }
         }
         io.stop();
-    });
+    }, {});
 
     io.run_for(std::chrono::seconds(15));
     EXPECT_EQ(callbackCount, 3);

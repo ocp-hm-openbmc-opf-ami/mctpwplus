@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
             timer.expires_from_now(boost::posix_time::minutes(10));
             boost::system::error_code ec;
             timer.async_wait(yield[ec]);
-        });
+        }, {});
 
     io.run();
     return 0;

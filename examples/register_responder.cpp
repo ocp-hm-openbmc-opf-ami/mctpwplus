@@ -47,7 +47,7 @@ int main()
         std::cout << ((rcvStatus == boost::system::errc::success) ? "Success"
                                                                   : "Failed")
                   << '\n';
-    });
+    }, {});
 
     boost::asio::spawn(io, [eid, &mctpWrapper2,
                             &conn](boost::asio::yield_context yield) {
@@ -73,7 +73,7 @@ int main()
                   << ((rcvStatus == boost::system::errc::success) ? "Success"
                                                                   : "Failed")
                   << '\n';
-    });
+    }, {});
 
     io.run();
     return 0;

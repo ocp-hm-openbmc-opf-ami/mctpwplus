@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
                       << (status.first ? status.first.message() : "true")
                       << ". Send status " << status.second << '\n';
             return;
-        });
+        }, {});
     };
 
     mctpWrapper.detectMctpEndpointsAsync(registerCB);

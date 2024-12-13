@@ -38,7 +38,7 @@ TEST(RegisterResponder, SMBus)
         EXPECT_EQ(rcvStatus, boost::system::errc::io_error);
 
         io.stop();
-    });
+    }, {});
     io.run_for(std::chrono::seconds(15));
 }
 

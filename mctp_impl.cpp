@@ -42,7 +42,7 @@ void MCTPImpl::detectMctpEndpointsAsync(StatusCallback&& registerCB)
                            {
                                registerCB(ec, this);
                            }
-                       });
+                       }, {});
 }
 
 void MCTPImpl::triggerMCTPDeviceDiscovery(const DeviceID devID)
@@ -880,7 +880,7 @@ void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
             event.type = mctpw::Event::EventType::deviceAdded;
             event.serviceName = this->getReadableName(serviceName);
             this->networkChangeCallback(this, event, yield);
-        });
+        }, {});
 }
 
 void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
@@ -962,7 +962,7 @@ void MCTPImpl::onEIDRemoved(const std::string& serviceName, DeviceID deviceID)
             event.deviceId = deviceID;
             event.serviceName = this->getReadableName(serviceName);
             this->networkChangeCallback(this, event, yield);
-        });
+        }, {});
 }
 
 void MCTPImpl::onInterfaceRemoved(sdbusplus::message::message& msg)

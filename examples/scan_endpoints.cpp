@@ -50,7 +50,7 @@ int main(int argc, char*[])
             io, [&mctpWrapper, &printEPMap](boost::asio::yield_context yield) {
                 mctpWrapper.detectMctpEndpoints(yield);
                 printEPMap();
-            });
+            }, {});
     }
     else
     {

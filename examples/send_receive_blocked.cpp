@@ -54,7 +54,7 @@ int main()
                 }
                 std::cout << '\n';
             }
-        });
+        }, {});
 
     io.run();
     return 0;
