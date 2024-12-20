@@ -28,7 +28,7 @@ template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
 using MctpPropertiesVariantType =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
-                 uint8_t, std::vector<uint8_t>>;
+                 uint8_t, std::vector<uint8_t>, std::vector<uint16_t>>;
 
 namespace mctpw
 {
@@ -918,11 +918,12 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
     // TODO Check for /xyz/openbmc_project/mctp/\d+ using regex
     if (objectPath.str.starts_with("/xyz/openbmc_project/mctp/"))
     {
+        auto newExtendedEID = getDeviceIDFromPath(objectPath, msg.get_sender());
         // Interface added on base endpoint object. Means new EID
         auto itSupportedMsgTypes =
             values.find("xyz.openbmc_project.MCTP.SupportedMessageTypes");
-        if (values.end() != itSupportedMsgTypes ||
-            config.type == mctpw::MessageType::any)
+        if (values.end() != itSupportedMsgTypes &&
+            config.type != MessageType::vdpci)
         {
             const auto& properties = itSupportedMsgTypes->second;
             const auto& registeredMsgType = properties.at(
@@ -930,11 +931,48 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
             if (std::get<bool>(registeredMsgType) ||
                 config.type == mctpw::MessageType::any)
             {
-                // TODO Check VDPCI mask matching
-                auto newExtendedEID =
-                    getDeviceIDFromPath(objectPath, msg.get_sender());
                 this->onNewEID(msg.get_sender(), newExtendedEID);
+                return;
             }
+        }
+        auto itPCIVDM =
+            values.find("xyz.openbmc_project.MCTP.PCIVendorDefined");
+        if (config.type == MessageType::vdpci && itPCIVDM != values.end())
+        {
+            if (config.vendorId)
+            {
+                std::string vendorIdStr =
+                    std::get<std::string>(itPCIVDM->second.at("VendorID"));
+                uint16_t vendorId =
+                    static_cast<uint16_t>(std::stoi(vendorIdStr, nullptr, 16));
+                if (vendorId != be16toh(*config.vendorId))
+                {
+                    phosphor::logging::log<phosphor::logging::level::INFO>(
+                        ("VendorID not matching for " + objectPath.str)
+                            .c_str());
+                    return;
+                }
+
+                if (config.vendorMessageType)
+                {
+                    std::vector<uint16_t> msgTypes =
+                        std::get<std::vector<uint16_t>>(
+                            itPCIVDM->second.at("MessageTypeProperty"));
+                    auto itMsgType =
+                        std::find(msgTypes.begin(), msgTypes.end(),
+                                  be16toh(config.vendorMessageType->value));
+                    if (msgTypes.end() == itMsgType)
+                    {
+                        phosphor::logging::log<phosphor::logging::level::INFO>(
+                            ("Vendor Message Type not matching for " +
+                             objectPath.str)
+                                .c_str());
+                        return;
+                    }
+                }
+            }
+            this->onNewEID(msg.get_sender(), newExtendedEID);
+            return;
         }
     }
 }
