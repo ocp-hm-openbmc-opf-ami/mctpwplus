@@ -9,7 +9,7 @@ libexists = fs.exists(installdir + '/lib/libboost_context.so') and fs.exists(ins
 
 if not libexists
   message('Boost libs not found. Downloading boost using wget')
-  tar_download = run_command('wget', '-nc', '--no-check-certificate', 'https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.tar.gz', check: true)
+  tar_download = run_command('wget', '-nc', '--no-check-certificate', 'https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.gz', check: true)
   message(tar_download.stdout().strip())
   assert(fs.exists('boost_1_83_0.tar.gz'), 'Boost download failed')
   extract_cmd = run_command('tar', '-xvf', 'boost_1_83_0.tar.gz', '--strip-components', '1', check: true)

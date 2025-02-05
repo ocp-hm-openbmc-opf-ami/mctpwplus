@@ -17,7 +17,7 @@ boost_dep = dependency('boost', required: false, version : '>=1.71',
     modules: [ 'context', 'coroutine'])
 if not boost_dep.found()
     boost_proj = subproject('boost_1_83_0')
-    boost_dep = boost_proj.get_variable('boost_dep')
+    boost_dep = boost_proj.get_variable('boost_dep').as_system()
 endif
 
 sdbusplus_dep = dependency('sdbusplus')
