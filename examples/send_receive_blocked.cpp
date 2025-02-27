@@ -35,7 +35,8 @@ int main()
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
     boost::asio::spawn(
-        io, [&mctpWrapper, eid](boost::asio::yield_context yield) {
+        io,
+        [&mctpWrapper, eid](boost::asio::yield_context yield) {
             mctpWrapper.detectMctpEndpoints(yield);
             std::cout << "Before sendReceiveBlocked Method" << std::endl;
             std::vector<uint8_t> request = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
@@ -54,7 +55,8 @@ int main()
                 }
                 std::cout << '\n';
             }
-        }, {});
+        },
+        {});
 
     io.run();
     return 0;

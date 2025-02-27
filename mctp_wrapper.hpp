@@ -618,7 +618,6 @@ class MCTPWrapper
      */
     void setExtendedReceiveCallback(ExtendedReceiveMessageCallback callback);
 
-
     /**
      * @brief Initiates handshake between client and SPDM socket server.
      *
@@ -632,7 +631,8 @@ class MCTPWrapper
      * @param deviceID The DeviceID of the device to initiate the handshake
      * with.
      */
-    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback, DeviceID deviceID);
+    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
+                               DeviceID deviceID);
 
     /// MCTP Configuration to store message type and vendor defined properties
     MCTPConfiguration config{};

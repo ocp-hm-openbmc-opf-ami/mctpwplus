@@ -43,10 +43,10 @@ TEST(DetectEndPointsTest, Yield)
                            EXPECT_TRUE(eidMap.contains(9));
                            EXPECT_TRUE(eidMap.contains(10));
                            io.stop();
-                       }, {});
+                       },
+                       {});
     io.run_for(std::chrono::seconds(mesonTestTimeout));
 }
-
 
 TEST(DetectEndPointsTest, Sync)
 {

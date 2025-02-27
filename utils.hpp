@@ -106,8 +106,8 @@ Property readPropertyValue(sdbusplus::asio::connection& connection,
 {
     using T = std::variant<Property>;
     T val = methodCall<T>(connection, service, path,
-                                "org.freedesktop.DBus.Properties", "Get",
-                                interface, property);
+                          "org.freedesktop.DBus.Properties", "Get", interface,
+                          property);
     return std::get<Property>(val);
 }
 

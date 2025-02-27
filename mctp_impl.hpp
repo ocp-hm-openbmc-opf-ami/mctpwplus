@@ -253,7 +253,8 @@ class MCTPImpl
      * @param deviceID The DeviceID of the device to initiate the handshake
      * with.
      */
-    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback, DeviceID deviceID);
+    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
+                               DeviceID deviceID);
 
     /**
      * @brief Send MCTP request to dstEId and receive status of send operation
@@ -294,12 +295,12 @@ class MCTPImpl
         socketIntf;
 
     // Get list of pair<bus, service_name_string> which expose mctp object
-    std::optional<std::vector<std::string>>
-        findBusByBindingType(std::optional<boost::asio::yield_context> yield = std::nullopt);
+    std::optional<std::vector<std::string>> findBusByBindingType(
+        std::optional<boost::asio::yield_context> yield = std::nullopt);
     /* Return format: map<Eid, pair<bus, service_name_string>> */
-    void
-        buildMatchingEndpointMap(std::optional<boost::asio::yield_context> yield,
-                                 std::vector<std::string> services);
+    void buildMatchingEndpointMap(
+        std::optional<boost::asio::yield_context> yield,
+        std::vector<std::string> services);
     void listenForMCTPChanges();
     std::unique_ptr<sdbusplus::bus::match::match> mctpChangesWatch{};
     void onMCTPEvent(sdbusplus::message::message& msg);
@@ -311,8 +312,9 @@ class MCTPImpl
     void onNewEID(const std::string& serviceName, DeviceID eid);
     void onOwnEIDChange(std::string serviceName, eid_t eid);
     void onEIDRemoved(const std::string& serviceName, DeviceID eid);
-    void addUniqueNameToMatchedServices(const std::string& serviceName,
-                                        std::optional<boost::asio::yield_context> yield);
+    void addUniqueNameToMatchedServices(
+        const std::string& serviceName,
+        std::optional<boost::asio::yield_context> yield);
 
     void registerListeners(const std::string& serviceName);
     void unRegisterListeners(const std::string& serviceName);

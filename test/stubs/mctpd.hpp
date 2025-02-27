@@ -116,7 +116,9 @@ class MCTPService : public SDBusServer
             "ReserveBandwidth",
             [this](boost::asio::yield_context, uint8_t a, const uint16_t b) {
                 static uint8_t count = 0;
-                std::cerr << "Count " << static_cast<int>(a) << ' ' << static_cast<int>(b) << ' ' << static_cast<int>(count) << '\n';
+                std::cerr << "Count " << static_cast<int>(a) << ' '
+                          << static_cast<int>(b) << ' '
+                          << static_cast<int>(count) << '\n';
                 count++;
                 if (count == 1)
                 {

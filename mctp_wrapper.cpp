@@ -41,8 +41,7 @@ MCTPConfiguration::MCTPConfiguration(MessageType msgType, BindingType binding) :
 
 MCTPConfiguration::MCTPConfiguration(MessageType msgType, BindingType binding,
                                      uint16_t vid) :
-    type(msgType),
-    bindingType(binding)
+    type(msgType), bindingType(binding)
 {
     if (MessageType::vdpci != msgType)
     {
@@ -63,9 +62,8 @@ MCTPWrapper::MCTPWrapper(boost::asio::io_context& ioContext,
                          const MCTPConfiguration& configIn,
                          const ReconfigurationCallback& networkChangeCb,
                          const ReceiveMessageCallback& rxCb) :
-    config(configIn),
-    pimpl(
-        std::make_unique<MCTPImpl>(ioContext, configIn, networkChangeCb, rxCb))
+    config(configIn), pimpl(std::make_unique<MCTPImpl>(ioContext, configIn,
+                                                       networkChangeCb, rxCb))
 {
 }
 
@@ -90,14 +88,13 @@ boost::system::error_code
 {
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
-    
+
     ec = pimpl->detectMctpEndpoints(yield);
 
     return ec;
 }
 
-boost::system::error_code
-    MCTPWrapper::detectMctpEndpoints()
+boost::system::error_code MCTPWrapper::detectMctpEndpoints()
 {
     boost::system::error_code ec =
         boost::system::errc::make_error_code(boost::system::errc::success);
@@ -293,9 +290,8 @@ void MCTPWrapper::setExtendedReceiveCallback(
     pimpl->setExtendedReceiveCallback(callback);
 }
 
-void MCTPWrapper::initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
-                                        DeviceID extendedEID)
+void MCTPWrapper::initiateSPDMHandshake(
+    HandshakeCallback initiateHandshakeCallback, DeviceID extendedEID)
 {
     pimpl->initiateSPDMHandshake(initiateHandshakeCallback, extendedEID);
 }
-

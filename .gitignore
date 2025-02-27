@@ -2,3 +2,6 @@
 !/subprojects/*.wrap
 !/subprojects/packagefiles
 !/subprojects/boost_1_83_0/meson.build
+
+# build directories
+/build

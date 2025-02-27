@@ -18,44 +18,47 @@ TEST(MCTPDynamicTest, Test1)
             std::cout << "EID. " << static_cast<int>(evt.eid) << '\n';
         });
 
-    boost::asio::spawn(io, [this, &mctpWrapper, &io, &callbackSuccess](
-                               boost::asio::yield_context yield) {
-        mctpWrapper.detectMctpEndpoints(yield);
+    boost::asio::spawn(
+        io,
+        [this, &mctpWrapper, &io,
+         &callbackSuccess](boost::asio::yield_context yield) {
+            mctpWrapper.detectMctpEndpoints(yield);
 
-        auto writeToProcess = [this, &io](std::array<uint8_t, 4> data,
-                                          boost::asio::yield_context yield,
-                                          uint16_t timeout = 200) {
-            mctpd->writeData(data);
+            auto writeToProcess = [this, &io](std::array<uint8_t, 4> data,
+                                              boost::asio::yield_context yield,
+                                              uint16_t timeout = 200) {
+                mctpd->writeData(data);
 
-            boost::asio::steady_timer timer(io,
-                                            std::chrono::milliseconds(timeout));
-            timer.async_wait(yield);
-        };
+                boost::asio::steady_timer timer(
+                    io, std::chrono::milliseconds(timeout));
+                timer.async_wait(yield);
+            };
 
-        mctpWrapper.getOwnEIDs(callbackSuccess);
-        uint8_t validEID1 = 3;
-        uint8_t validEID2 = 4;
+            mctpWrapper.getOwnEIDs(callbackSuccess);
+            uint8_t validEID1 = 3;
+            uint8_t validEID2 = 4;
 
-        std::array<uint8_t, 4> data = {
-            static_cast<uint8_t>(OnMCTPEvtEnum::addNewInterface), 0, 0, 0};
-        writeToProcess(data, yield, 1000);
+            std::array<uint8_t, 4> data = {
+                static_cast<uint8_t>(OnMCTPEvtEnum::addNewInterface), 0, 0, 0};
+            writeToProcess(data, yield, 1000);
 
-        data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::propertiesChange);
-        data[1] = validEID1;
-        writeToProcess(data, yield);
+            data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::propertiesChange);
+            data[1] = validEID1;
+            writeToProcess(data, yield);
 
-        data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::removeEID);
-        data[1] = validEID2;
-        writeToProcess(data, yield);
+            data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::removeEID);
+            data[1] = validEID2;
+            writeToProcess(data, yield);
 
-        data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::interfaceRemove);
-        writeToProcess(data, yield);
+            data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::interfaceRemove);
+            writeToProcess(data, yield);
 
-        data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::messageRecieve);
+            data[0] = static_cast<uint8_t>(OnMCTPEvtEnum::messageRecieve);
 
-        writeToProcess(data, yield);
-        io.stop();
-    }, {});
+            writeToProcess(data, yield);
+            io.stop();
+        },
+        {});
 
     io.run_for(std::chrono::seconds(mesonTestTimeout));
 }

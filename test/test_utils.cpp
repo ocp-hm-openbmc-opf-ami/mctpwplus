@@ -57,25 +57,30 @@ TEST_F(TestUtils, MethodCallWithReturn)
     uint16_t arg2 = 0x02;
     bool cbCalled = false;
 
-    boost::asio::spawn(*io, [this, arg1, arg2,
-                             &cbCalled](boost::asio::yield_context yield) {
-        {
-            auto status = mctpw::methodCall<int>(
-                *conn, service, objectPath, interface, method, std::make_optional<boost::asio::yield_context>(yield), arg2);
-            EXPECT_FALSE(status.has_value());
-            EXPECT_TRUE(status.error());
-        }
-        {
-            auto status =
-                mctpw::methodCall<int>(*conn, service, objectPath, interface,
-                                       method, std::make_optional<boost::asio::yield_context>(yield), arg1, arg2);
-            EXPECT_TRUE(status.has_value());
-            std::cout << "Status " << *status << '\n';
-            EXPECT_EQ(*status, -1);
-        }
-        cbCalled = true;
-        this->io->stop();
-    }, {});
+    boost::asio::spawn(
+        *io,
+        [this, arg1, arg2, &cbCalled](boost::asio::yield_context yield) {
+            {
+                auto status = mctpw::methodCall<int>(
+                    *conn, service, objectPath, interface, method,
+                    std::make_optional<boost::asio::yield_context>(yield),
+                    arg2);
+                EXPECT_FALSE(status.has_value());
+                EXPECT_TRUE(status.error());
+            }
+            {
+                auto status = mctpw::methodCall<int>(
+                    *conn, service, objectPath, interface, method,
+                    std::make_optional<boost::asio::yield_context>(yield), arg1,
+                    arg2);
+                EXPECT_TRUE(status.has_value());
+                std::cout << "Status " << *status << '\n';
+                EXPECT_EQ(*status, -1);
+            }
+            cbCalled = true;
+            this->io->stop();
+        },
+        {});
 
     int status = mctpw::methodCall<int>(*conn, service, objectPath, interface,
                                         method, arg1, arg2);
@@ -90,22 +95,26 @@ TEST_F(TestUtils, MethodCallVoid)
 {
     bool cbCalled = false;
     boost::asio::spawn(
-        *io, [this, &cbCalled](boost::asio::yield_context yield) {
+        *io,
+        [this, &cbCalled](boost::asio::yield_context yield) {
             {
-                auto status =
-                    mctpw::methodCall(*conn, service, objectPath, interface,
-                                      "TriggerDeviceDiscoveryInvalid", std::make_optional<boost::asio::yield_context>(yield));
+                auto status = mctpw::methodCall(
+                    *conn, service, objectPath, interface,
+                    "TriggerDeviceDiscoveryInvalid",
+                    std::make_optional<boost::asio::yield_context>(yield));
                 EXPECT_TRUE(status);
             }
             {
-                auto status =
-                    mctpw::methodCall(*conn, service, objectPath, interface,
-                                      "TriggerDeviceDiscovery", std::make_optional<boost::asio::yield_context>(yield));
+                auto status = mctpw::methodCall(
+                    *conn, service, objectPath, interface,
+                    "TriggerDeviceDiscovery",
+                    std::make_optional<boost::asio::yield_context>(yield));
                 EXPECT_FALSE(status);
             }
             cbCalled = true;
             this->io->stop();
-        }, {});
+        },
+        {});
 
     EXPECT_NO_THROW(mctpw::methodCall(*conn, service, objectPath, interface,
                                       "TriggerDeviceDiscovery"));
@@ -117,25 +126,27 @@ TEST_F(TestUtils, MethodCallVoid)
 TEST_F(TestUtils, ReadProperty)
 {
     bool cbCalled = false;
-    boost::asio::spawn(*io,
-                       [this, &cbCalled](boost::asio::yield_context yield) {
-                           {
-                               auto eid = mctpw::readPropertyValue<uint8_t>(
-                                   *conn, service, objectPath, interface, "Eid", yield);
-                               EXPECT_TRUE(eid.has_value());
-                               EXPECT_EQ(*eid, 4);
-                           }
-                           {
-                               auto eid = mctpw::readPropertyValue<uint8_t>(
-                                   *conn, service, objectPath, interface, "Eids", yield);
-                               EXPECT_FALSE(eid.has_value());
-                           }
-                           cbCalled = true;
-                           this->io->stop();
-                       }, {});
+    boost::asio::spawn(
+        *io,
+        [this, &cbCalled](boost::asio::yield_context yield) {
+            {
+                auto eid = mctpw::readPropertyValue<uint8_t>(
+                    *conn, service, objectPath, interface, "Eid", yield);
+                EXPECT_TRUE(eid.has_value());
+                EXPECT_EQ(*eid, 4);
+            }
+            {
+                auto eid = mctpw::readPropertyValue<uint8_t>(
+                    *conn, service, objectPath, interface, "Eids", yield);
+                EXPECT_FALSE(eid.has_value());
+            }
+            cbCalled = true;
+            this->io->stop();
+        },
+        {});
 
-    auto eid =
-        mctpw::readPropertyValue<uint8_t>(*conn, service, objectPath, interface, "Eid");
+    auto eid = mctpw::readPropertyValue<uint8_t>(*conn, service, objectPath,
+                                                 interface, "Eid");
     EXPECT_EQ(eid, 4);
 
     io->run_for(std::chrono::seconds(15));

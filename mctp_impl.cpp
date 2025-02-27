@@ -15,6 +15,7 @@
 */
 
 #include "mctp_impl.hpp"
+
 #include "utils.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -42,7 +43,8 @@ void MCTPImpl::detectMctpEndpointsAsync(StatusCallback&& registerCB)
                            {
                                registerCB(ec, this);
                            }
-                       }, {});
+                       },
+                       {});
 }
 
 void MCTPImpl::triggerMCTPDeviceDiscovery(const DeviceID devID)
@@ -139,8 +141,8 @@ int MCTPImpl::releaseBandwidth(boost::asio::yield_context yield,
     return status;
 }
 
-boost::system::error_code
-    MCTPImpl::detectMctpEndpoints(std::optional<boost::asio::yield_context> yield = std::nullopt)
+boost::system::error_code MCTPImpl::detectMctpEndpoints(
+    std::optional<boost::asio::yield_context> yield = std::nullopt)
 {
     phosphor::logging::log<phosphor::logging::level::DEBUG>(
         "Detecting mctp endpoints");
@@ -196,12 +198,12 @@ boost::system::error_code
     return ec;
 }
 
-void MCTPImpl::addUniqueNameToMatchedServices(const std::string& serviceName,
-                                              std::optional<boost::asio::yield_context> yield)
+void MCTPImpl::addUniqueNameToMatchedServices(
+    const std::string& serviceName,
+    std::optional<boost::asio::yield_context> yield)
 {
     auto uniqueName = mctpw::methodCall<std::string>(
-        *connection,
-        "org.freedesktop.DBus", "/org/freedesktop/DBus",
+        *connection, "org.freedesktop.DBus", "/org/freedesktop/DBus",
         "org.freedesktop.DBus", "GetNameOwner", yield, serviceName.c_str());
 
     if (!uniqueName)
@@ -216,8 +218,8 @@ void MCTPImpl::addUniqueNameToMatchedServices(const std::string& serviceName,
     this->matchedBuses.emplace(uniqueName.value());
 }
 
-std::optional<std::vector<std::string>>
-    MCTPImpl::findBusByBindingType(std::optional<boost::asio::yield_context> yield)
+std::optional<std::vector<std::string>> MCTPImpl::findBusByBindingType(
+    std::optional<boost::asio::yield_context> yield)
 {
     boost::system::error_code ec;
     std::vector<std::string> buses;
@@ -233,11 +235,12 @@ std::optional<std::vector<std::string>>
         }
         // find the services, with their interfaces, that implement a
         // certain object path
-        
-        auto getObjects = mctpw::methodCall<decltype(services)>(*connection, "xyz.openbmc_project.ObjectMapper",
-                                        "/xyz/openbmc_project/object_mapper",
-                                        "xyz.openbmc_project.ObjectMapper", "GetObject", yield,
-                                        "/xyz/openbmc_project/mctp", interfaces);
+
+        auto getObjects = mctpw::methodCall<decltype(services)>(
+            *connection, "xyz.openbmc_project.ObjectMapper",
+            "/xyz/openbmc_project/object_mapper",
+            "xyz.openbmc_project.ObjectMapper", "GetObject", yield,
+            "/xyz/openbmc_project/mctp", interfaces);
         if (getObjects)
         {
             services = getObjects.value();
@@ -245,7 +248,8 @@ std::optional<std::vector<std::string>>
         else
         {
             throw std::runtime_error(
-                (std::string("Error getting mctp services. ") + getObjects.error().message())
+                (std::string("Error getting mctp services. ") +
+                 getObjects.error().message())
                     .c_str());
         }
 
@@ -277,9 +281,9 @@ std::optional<std::vector<std::string>>
 /* Return format:
  * map<Eid, pair<bus, service_name_string>>
  */
-void
-    MCTPImpl::buildMatchingEndpointMap(std::optional<boost::asio::yield_context> yield,
-                                       std::vector<std::string> services)
+void MCTPImpl::buildMatchingEndpointMap(
+    std::optional<boost::asio::yield_context> yield,
+    std::vector<std::string> services)
 {
     for (auto& service : services)
     {
@@ -291,11 +295,11 @@ void
         // get all objects, interfaces and properties in a single method
         // call DICT<OBJPATH,DICT<STRING,DICT<STRING,VARIANT>>>
         // objpath_interfaces_and_properties
-        
-        auto getManagedObjects = mctpw::methodCall<decltype(values)>(*connection,
-            service, "/xyz/openbmc_project/mctp",
+
+        auto getManagedObjects = mctpw::methodCall<decltype(values)>(
+            *connection, service, "/xyz/openbmc_project/mctp",
             "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", yield);
-        
+
         if (getManagedObjects)
         {
             values = getManagedObjects.value();
@@ -304,7 +308,7 @@ void
         {
             phosphor::logging::log<phosphor::logging::level::WARNING>(
                 (std::string("Error getting managed objects on ") + service +
-                ". Bus ")
+                 ". Bus ")
                     .c_str());
             continue;
         }
@@ -880,7 +884,8 @@ void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
             event.type = mctpw::Event::EventType::deviceAdded;
             event.serviceName = this->getReadableName(serviceName);
             this->networkChangeCallback(this, event, yield);
-        }, {});
+        },
+        {});
 }
 
 void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
@@ -1000,7 +1005,8 @@ void MCTPImpl::onEIDRemoved(const std::string& serviceName, DeviceID deviceID)
             event.deviceId = deviceID;
             event.serviceName = this->getReadableName(serviceName);
             this->networkChangeCallback(this, event, yield);
-        }, {});
+        },
+        {});
 }
 
 void MCTPImpl::onInterfaceRemoved(sdbusplus::message::message& msg)
@@ -1197,8 +1203,8 @@ void MCTPImpl::setExtendedReceiveCallback(
     this->extReceiveCallback = std::move(callback);
 }
 
-void MCTPImpl::initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
-                                     DeviceID devID)
+void MCTPImpl::initiateSPDMHandshake(
+    HandshakeCallback initiateHandshakeCallback, DeviceID devID)
 {
     auto it = this->endpointMap.find(devID);
 
@@ -1218,10 +1224,9 @@ void MCTPImpl::initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback
         return;
     }
 
-    connection->async_method_call(initiateHandshakeCallback, it->second,
-                                  "/xyz/openbmc_project/mctp",
-                                  "xyz.openbmc_project.MCTP.Base",
-                                  "InitiateHandshake", devID.id);
+    connection->async_method_call(
+        initiateHandshakeCallback, it->second, "/xyz/openbmc_project/mctp",
+        "xyz.openbmc_project.MCTP.Base", "InitiateHandshake", devID.id);
 }
 
 MCTPImpl::MCTPImpl(boost::asio::io_context& ioContext,
@@ -1239,8 +1244,7 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
 
                    const ReconfigurationCallback& networkChangeCb,
                    const ReceiveMessageCallback& rxCb) :
-    connection(conn),
-    config(configIn), networkChangeCallback(networkChangeCb),
+    connection(conn), config(configIn), networkChangeCallback(networkChangeCb),
     receiveCallback(rxCb)
 {
 }

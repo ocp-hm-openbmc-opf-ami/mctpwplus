@@ -12,21 +12,24 @@ TEST(GetDeviceLocation, SMBus)
 
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
-    boost::asio::spawn(io, [&](boost::asio::yield_context yield) {
-        mctpWrapper.detectMctpEndpoints(yield);
+    boost::asio::spawn(io,
+                       [&](boost::asio::yield_context yield) {
+                           mctpWrapper.detectMctpEndpoints(yield);
 
-        uint8_t eidValid = 9;
-        uint8_t eidInvalid = 11;
-        std::string actual = "PCIe_Slot_1";
-        auto locCode = mctpWrapper.getDeviceLocation(eidValid);
-        EXPECT_TRUE(locCode);
-        EXPECT_EQ(*locCode, actual);
+                           uint8_t eidValid = 9;
+                           uint8_t eidInvalid = 11;
+                           std::string actual = "PCIe_Slot_1";
+                           auto locCode =
+                               mctpWrapper.getDeviceLocation(eidValid);
+                           EXPECT_TRUE(locCode);
+                           EXPECT_EQ(*locCode, actual);
 
-        locCode = mctpWrapper.getDeviceLocation(eidInvalid);
-        EXPECT_FALSE(locCode);
+                           locCode = mctpWrapper.getDeviceLocation(eidInvalid);
+                           EXPECT_FALSE(locCode);
 
-        io.stop();
-    }, {});
+                           io.stop();
+                       },
+                       {});
     io.run_for(std::chrono::seconds(mesonTestTimeout));
 }
 

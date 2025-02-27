@@ -99,7 +99,8 @@ int main(int argc, char* argv[])
         });
 
     boost::asio::spawn(
-        io, [&io, &config, &ctrlC](boost::asio::yield_context yield) {
+        io,
+        [&io, &config, &ctrlC](boost::asio::yield_context yield) {
             mctpw::MCTPWrapper mctpWrapper(io, config, onDeviceUpdate, nullptr);
             mctpWrapper.detectMctpEndpoints(yield);
 
@@ -115,7 +116,8 @@ int main(int argc, char* argv[])
             timer.expires_from_now(boost::posix_time::minutes(10));
             boost::system::error_code ec;
             timer.async_wait(yield[ec]);
-        }, {});
+        },
+        {});
 
     io.run();
     return 0;

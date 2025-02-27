@@ -38,42 +38,49 @@ int main()
     signals.async_wait(
         [&io](const boost::system::error_code&, const int&) { io.stop(); });
 
-    boost::asio::spawn(io, [eid,
-                            &mctpWrapper1](boost::asio::yield_context yield) {
-        mctpWrapper1.detectMctpEndpoints(yield);
-        std::cout << "Registering a SMBus PLDM responder" << std::endl;
-        VersionFields specVersion = {0xF1, 0xF1, 0xF0, 0};
-        auto rcvStatus = mctpWrapper1.registerResponder(specVersion);
-        std::cout << ((rcvStatus == boost::system::errc::success) ? "Success"
-                                                                  : "Failed")
-                  << '\n';
-    }, {});
+    boost::asio::spawn(
+        io,
+        [eid, &mctpWrapper1](boost::asio::yield_context yield) {
+            mctpWrapper1.detectMctpEndpoints(yield);
+            std::cout << "Registering a SMBus PLDM responder" << std::endl;
+            VersionFields specVersion = {0xF1, 0xF1, 0xF0, 0};
+            auto rcvStatus = mctpWrapper1.registerResponder(specVersion);
+            std::cout << ((rcvStatus == boost::system::errc::success)
+                              ? "Success"
+                              : "Failed")
+                      << '\n';
+        },
+        {});
 
-    boost::asio::spawn(io, [eid, &mctpWrapper2,
-                            &conn](boost::asio::yield_context yield) {
-        mctpWrapper2.detectMctpEndpoints(yield);
-        std::cout << "Registering a SMBus VDPCI responder" << std::endl;
-        VersionFields v1 = {0xF1, 0xF1, 0xF0, 0};
-        VersionFields v2 = {0xF1, 0xF1, 0xF0, 0};
-        std::vector<VersionFields> versions = {v1, v2};
-        auto rcvStatus = mctpWrapper2.registerResponder(versions);
-        std::cout << ((rcvStatus == boost::system::errc::success) ? "Success"
-                                                                  : "Failed")
-                  << '\n';
+    boost::asio::spawn(
+        io,
+        [eid, &mctpWrapper2, &conn](boost::asio::yield_context yield) {
+            mctpWrapper2.detectMctpEndpoints(yield);
+            std::cout << "Registering a SMBus VDPCI responder" << std::endl;
+            VersionFields v1 = {0xF1, 0xF1, 0xF0, 0};
+            VersionFields v2 = {0xF1, 0xF1, 0xF0, 0};
+            std::vector<VersionFields> versions = {v1, v2};
+            auto rcvStatus = mctpWrapper2.registerResponder(versions);
+            std::cout << ((rcvStatus == boost::system::errc::success)
+                              ? "Success"
+                              : "Failed")
+                      << '\n';
 
-        constexpr uint16_t intelId = 0x8086;
-        constexpr uint16_t vdMsgType = 0x1234;
-        constexpr uint16_t vdMsgMask = 0x0F0F;
-        MCTPConfiguration config(mctpw::MessageType::vdpci,
-                                 mctpw::BindingType::mctpOverSmBus, intelId,
-                                 vdMsgType, vdMsgMask);
-        MCTPWrapper mctpWrapper(conn, config, nullptr, nullptr);
-        rcvStatus = mctpWrapper.registerResponder(versions);
-        std::cout << "Registering VDPCI 0x1234"
-                  << ((rcvStatus == boost::system::errc::success) ? "Success"
-                                                                  : "Failed")
-                  << '\n';
-    }, {});
+            constexpr uint16_t intelId = 0x8086;
+            constexpr uint16_t vdMsgType = 0x1234;
+            constexpr uint16_t vdMsgMask = 0x0F0F;
+            MCTPConfiguration config(mctpw::MessageType::vdpci,
+                                     mctpw::BindingType::mctpOverSmBus, intelId,
+                                     vdMsgType, vdMsgMask);
+            MCTPWrapper mctpWrapper(conn, config, nullptr, nullptr);
+            rcvStatus = mctpWrapper.registerResponder(versions);
+            std::cout << "Registering VDPCI 0x1234"
+                      << ((rcvStatus == boost::system::errc::success)
+                              ? "Success"
+                              : "Failed")
+                      << '\n';
+        },
+        {});
 
     io.run();
     return 0;

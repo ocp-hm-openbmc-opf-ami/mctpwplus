@@ -12,17 +12,20 @@ TEST(TriggerDeviceDiscovery, DISABLED_PcieVdm)
 
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
-    boost::asio::spawn(io, [&](boost::asio::yield_context yield) {
-        mctpWrapper.detectMctpEndpoints(yield);
+    boost::asio::spawn(
+        io,
+        [&](boost::asio::yield_context yield) {
+            mctpWrapper.detectMctpEndpoints(yield);
 
-        uint8_t eidValid = 10;
-        EXPECT_NO_THROW(mctpWrapper.triggerMCTPDeviceDiscovery(eidValid));
+            uint8_t eidValid = 10;
+            EXPECT_NO_THROW(mctpWrapper.triggerMCTPDeviceDiscovery(eidValid));
 
-        uint8_t eidInvalid = 11;
-        EXPECT_NO_THROW(mctpWrapper.triggerMCTPDeviceDiscovery(eidInvalid));
+            uint8_t eidInvalid = 11;
+            EXPECT_NO_THROW(mctpWrapper.triggerMCTPDeviceDiscovery(eidInvalid));
 
-        io.stop();
-    }, {});
+            io.stop();
+        },
+        {});
 
     io.run_for(std::chrono::seconds(15));
 }
