@@ -19,6 +19,12 @@ if not boost_dep.found()
     boost_proj = subproject('boost_1_83_0')
     boost_dep = boost_proj.get_variable('boost_dep').as_system()
 endif
+add_project_arguments(
+    [
+        '-DBOOST_ASIO_NO_DEPRECATED',
+    ],
+    language: 'cpp',
+)
 
 sdbusplus_dep = dependency('sdbusplus')
 sdbusplus_partial_dep = sdbusplus_dep.partial_dependency(compile_args : false,

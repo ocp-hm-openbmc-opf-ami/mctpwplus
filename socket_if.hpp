@@ -19,7 +19,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
 
-using It = boost::asio::buffers_iterator<boost::asio::const_buffers_1>;
+using It = boost::asio::buffers_iterator<boost::asio::const_buffer>;
 std::pair<It, bool> isCompleteRequest(It begin, It end);
 
 namespace mctpw

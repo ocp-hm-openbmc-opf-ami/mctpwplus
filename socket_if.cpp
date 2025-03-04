@@ -47,7 +47,7 @@ SocketInterface::~SocketInterface()
     socket.close();
 }
 
-using It = boost::asio::buffers_iterator<boost::asio::const_buffers_1>;
+using It = boost::asio::buffers_iterator<boost::asio::const_buffer>;
 
 std::pair<It, bool> isCompleteRequest(It begin, It end)
 {
@@ -166,7 +166,7 @@ std::pair<std::error_code, SocketInterface::ByteArray>
             std::make_error_code(std::errc::device_or_resource_busy), rsp);
     }
     auto timer = std::make_shared<boost::asio::steady_timer>(ioc);
-    timer->expires_from_now(timeout);
+    timer->expires_after(timeout);
     reqTimerList.insert(std::make_pair(seqNum, timer));
     boost::system::error_code ec;
     timer->async_wait(yield[ec]);
@@ -223,7 +223,7 @@ void SocketInterface::sendReceiveAsync(ReceiveCallback receiveCb,
                 return receiveCb(ec, rsp);
             }
             auto timer = std::make_shared<boost::asio::steady_timer>(ioc);
-            timer->expires_from_now(timeout);
+            timer->expires_after(timeout);
             reqTimerList.insert(std::make_pair(sqNum, timer));
             timer->async_wait([this, sqNum, receiveCb,
                                &rsp](boost::system::error_code timer_ec) {
