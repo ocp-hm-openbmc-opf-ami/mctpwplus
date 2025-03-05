@@ -4,40 +4,44 @@ project(
     license: 'Apache-2.0',
     version: '0.1',
     meson_version: '>=1.1.1',
-    default_options: [
-        'warning_level=3',
-        'werror=false',
-        'cpp_std=c++23'
-    ],
+    default_options: ['warning_level=3', 'werror=false', 'cpp_std=c++23'],
 )
 
 build_examples = get_option('examples')
 
-boost_dep = dependency('boost', required: false, version : '>=1.71',
-    modules: [ 'context', 'coroutine'])
+boost_dep = dependency(
+    'boost',
+    required: false,
+    version: '>=1.71',
+    modules: ['context', 'coroutine'],
+)
 if not boost_dep.found()
     boost_proj = subproject('boost_1_83_0')
     boost_dep = boost_proj.get_variable('boost_dep').as_system()
 endif
-add_project_arguments(
-    [
-        '-DBOOST_ASIO_NO_DEPRECATED',
-    ],
-    language: 'cpp',
-)
+add_project_arguments(['-DBOOST_ASIO_NO_DEPRECATED'], language: 'cpp')
 
 sdbusplus_dep = dependency('sdbusplus')
-sdbusplus_partial_dep = sdbusplus_dep.partial_dependency(compile_args : false,
-     link_args: true, includes : true, links: true)
+sdbusplus_partial_dep = sdbusplus_dep.partial_dependency(
+    compile_args: false,
+    link_args: true,
+    includes: true,
+    links: true,
+)
 
 phosphor_logging_dep = dependency('phosphor-logging')
-phosphor_logging_partial_dep = phosphor_logging_dep.partial_dependency(compile_args : false,
-     link_args: true, includes : true, links: true)
+phosphor_logging_partial_dep = phosphor_logging_dep.partial_dependency(
+    compile_args: false,
+    link_args: true,
+    includes: true,
+    links: true,
+)
 
 systemd = dependency('systemd', required: true)
 systemd_system_unit_dir = systemd.get_pkgconfig_variable(
     'systemdsystemunitdir',
-    define_variable: ['prefix', get_option('prefix')])
+    define_variable: ['prefix', get_option('prefix')],
+)
 
 threads = dependency('threads')
 
@@ -50,7 +54,7 @@ deps = [
     sdbusplus_partial_dep,
     phosphor_logging_partial_dep,
     systemd,
-    threads
+    threads,
 ]
 
 deps_no_thread = [
@@ -58,21 +62,37 @@ deps_no_thread = [
     sdbusplus_partial_dep,
     phosphor_logging_partial_dep,
     systemd,
-    no_thread_dep
+    no_thread_dep,
 ]
 
 root_inc = include_directories('.')
 
-mctpwplus = shared_library('mctpwplus', src_files, install : true, dependencies : deps, include_directories: root_inc, version: meson.project_version())
-mctpwplus_nothread = shared_library('mctpwplus-nothread', src_files, install : true, dependencies : deps_no_thread, include_directories: root_inc, version: meson.project_version())
-
-mctpwplus_dep = declare_dependency(include_directories: root_inc,
-    link_with: mctpwplus,
-    dependencies: deps
+mctpwplus = shared_library(
+    'mctpwplus',
+    src_files,
+    install: true,
+    dependencies: deps,
+    include_directories: root_inc,
+    version: meson.project_version(),
 )
-mctpwplus_nothread_dep = declare_dependency(include_directories: root_inc,
+mctpwplus_nothread = shared_library(
+    'mctpwplus-nothread',
+    src_files,
+    install: true,
+    dependencies: deps_no_thread,
+    include_directories: root_inc,
+    version: meson.project_version(),
+)
+
+mctpwplus_dep = declare_dependency(
+    include_directories: root_inc,
+    link_with: mctpwplus,
+    dependencies: deps,
+)
+mctpwplus_nothread_dep = declare_dependency(
+    include_directories: root_inc,
     link_with: mctpwplus_nothread,
-    dependencies: deps_no_thread
+    dependencies: deps_no_thread,
 )
 
 install_headers('mctp_wrapper.hpp')
@@ -88,7 +108,7 @@ pkg.generate(
     name: meson.project_name(),
     version: meson.project_version(),
     description: 'C++ bindings for MCTP wrapper',
-    requires: systemd
+    requires: systemd,
 )
 
 pkg.generate(
@@ -101,5 +121,5 @@ pkg.generate(
 )
 
 if (not meson.is_subproject() and get_option('tests').enabled())
-  subdir('test')
+    subdir('test')
 endif
