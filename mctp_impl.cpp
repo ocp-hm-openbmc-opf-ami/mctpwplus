@@ -1102,13 +1102,22 @@ void MCTPImpl::onMessageReceived(sdbusplus::message::message& msg)
             return;
         }
     }
+
+    auto nwid = getNetworkID(msg.get_sender());
+    if (!endpointMap.contains(DeviceID(srcEid, nwid)))
+    {
+        endpointMap.emplace(DeviceID(srcEid, 0), msg.get_sender());
+        phosphor::logging::log<phosphor::logging::level::INFO>(
+            ("New EID added to endpoint map: " + std::to_string(srcEid))
+                .c_str());
+    }
+
     if (this->receiveCallback)
     {
         this->receiveCallback(this, srcEid, tagOwner, msgTag, payload, 0);
     }
     if (this->extReceiveCallback)
     {
-        auto nwid = getNetworkID(msg.get_sender());
         this->extReceiveCallback(this, DeviceID(srcEid, nwid), tagOwner, msgTag,
                                  payload, 0);
     }
