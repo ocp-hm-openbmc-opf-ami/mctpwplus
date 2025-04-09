@@ -291,7 +291,9 @@ void MCTPWrapper::setExtendedReceiveCallback(
 }
 
 void MCTPWrapper::initiateSPDMHandshake(
-    HandshakeCallback initiateHandshakeCallback, DeviceID extendedEID)
+    HandshakeCallback initiateHandshakeCallback, DeviceID extendedEID,
+    bool connState)
 {
-    pimpl->initiateSPDMHandshake(initiateHandshakeCallback, extendedEID);
+    pimpl->initiateSPDMHandshake(initiateHandshakeCallback, extendedEID,
+                                 connState);
 }

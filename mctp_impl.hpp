@@ -252,9 +252,10 @@ class MCTPImpl
      * initiating the handshake with the SPDM server.
      * @param deviceID The DeviceID of the device to initiate the handshake
      * with.
+     * @param connState The SPDM session connection state of the device.
      */
     void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
-                               DeviceID deviceID);
+                               DeviceID deviceID, bool connState);
 
     /**
      * @brief Send MCTP request to dstEId and receive status of send operation

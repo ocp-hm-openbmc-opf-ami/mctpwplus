@@ -1213,7 +1213,7 @@ void MCTPImpl::setExtendedReceiveCallback(
 }
 
 void MCTPImpl::initiateSPDMHandshake(
-    HandshakeCallback initiateHandshakeCallback, DeviceID devID)
+    HandshakeCallback initiateHandshakeCallback, DeviceID devID, bool connState)
 {
     auto it = this->endpointMap.find(devID);
 
@@ -1233,9 +1233,10 @@ void MCTPImpl::initiateSPDMHandshake(
         return;
     }
 
-    connection->async_method_call(
-        initiateHandshakeCallback, it->second, "/xyz/openbmc_project/mctp",
-        "xyz.openbmc_project.MCTP.Base", "InitiateHandshake", devID.id);
+    connection->async_method_call(initiateHandshakeCallback, it->second,
+                                  "/xyz/openbmc_project/mctp",
+                                  "xyz.openbmc_project.MCTP.Base",
+                                  "InitiateHandshake", devID.id, connState);
 }
 
 MCTPImpl::MCTPImpl(boost::asio::io_context& ioContext,

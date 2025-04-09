@@ -630,9 +630,10 @@ class MCTPWrapper
      * initiating the handshake with the SPDM server.
      * @param deviceID The DeviceID of the device to initiate the handshake
      * with.
+     * @param connState The SPDM session connection state of the device.
      */
     void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
-                               DeviceID deviceID);
+                               DeviceID deviceID, bool connState);
 
     /// MCTP Configuration to store message type and vendor defined properties
     MCTPConfiguration config{};
