@@ -19,6 +19,16 @@ For example the APIs provided by this library allow user to
 So the implementation is not a concern to the developer. Developer can focus on
 the application logic and implement it.
 
+## Dependencies
+
+- Boost (>= 1.71)
+- Meson
+- sdbusplus
+- Phosphor logging
+- Systemd
+- CLI11
+- GTest/GMock: For unit testing (optional)
+
 ## Building
 
 This library uses meson as build system. The build is tested only on Ubuntu
@@ -110,7 +120,9 @@ MCTPWrapper class defines 2 types of constructors. One variant takes boost
 io_context and other one takes shared_ptr to boost asio connection. Internally
 MCTPWrapper needs a sdbusplus connection object to work. If io_context is passed
 then a new connection object will be created. Or an existing connection object
-can be shared also.<br> Example 1.
+can be shared also.
+
+Example 1.
 
 ```cpp
     boost::asio::io_context io;
@@ -201,7 +213,9 @@ std::pair<boost::system::error_code, ByteArray>
 ```
 
 SendReceive APIs can be used after detectMctpEndpoints is called. It also has
-yield and async variant.<br> Async Example
+yield and async variant.
+
+Async Example
 
 ```cpp
 auto recvCB = [](boost::system::error_code err,
