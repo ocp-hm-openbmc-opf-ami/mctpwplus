@@ -1,5 +1,6 @@
 #include "protocol.hpp"
 #include "socket_if.hpp"
+#include "utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -30,24 +31,21 @@ void requester()
             }
         });
 
-    boost::asio::spawn(
-        ioReq,
-        [&sktInt, &eid, &req1](boost::asio::yield_context yield) {
-            std::pair<std::error_code, ByteArray> res =
-                sktInt->sendReceiveYield(yield, eid, req1,
-                                         std::chrono::milliseconds(100));
+    mctpw::spawn(ioReq, [&sktInt, &eid,
+                         &req1](boost::asio::yield_context yield) {
+        std::pair<std::error_code, ByteArray> res = sktInt->sendReceiveYield(
+            yield, eid, req1, std::chrono::milliseconds(100));
 
-            if (std::get<std::error_code>(res))
-            {
-                FAIL();
-            }
+        if (std::get<std::error_code>(res))
+        {
+            FAIL();
+        }
 
-            if (std::get<ByteArray>(res) != req1)
-            {
-                FAIL();
-            }
-        },
-        {});
+        if (std::get<ByteArray>(res) != req1)
+        {
+            FAIL();
+        }
+    });
 
     sktInt->sendReceiveAsync(
         [&req2](boost::system::error_code ec, const std::vector<uint8_t>&) {
@@ -103,15 +101,12 @@ void waitForRequest(
                                      resBuffer.data(), length);
             resBuffer.consume(length);
 
-            boost::asio::spawn(
-                ioRes,
-                [reqBuf = std::move(reqBuf),
-                 &resSocket](boost::asio::yield_context) {
-                    boost::asio::write(
-                        *resSocket,
-                        boost::asio::buffer(reqBuf.data(), reqBuf.size()));
-                },
-                {});
+            mctpw::spawn(ioRes, [reqBuf = std::move(reqBuf),
+                                 &resSocket](boost::asio::yield_context) {
+                boost::asio::write(
+                    *resSocket,
+                    boost::asio::buffer(reqBuf.data(), reqBuf.size()));
+            });
 
             waitForRequest(resSocket, resBuffer);
         });

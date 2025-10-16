@@ -1,5 +1,6 @@
 #include "mctp_wrapper.hpp"
 #include "stubs/stub_process.hpp"
+#include "utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -21,7 +22,7 @@ TEST(GetOwnEIDs, SMBus)
             static_cast<mctpw::OwnEIDChange::EIDChangeData*>(evt.context)->eid;
         EXPECT_EQ(actulEID, expectedEID);
     };
-    boost::asio::spawn(conn, [&](boost::asio::yield_context yield) {
+    mctpw::spawn(conn->get_io_context(), [&](boost::asio::yield_context yield) {
         mctpWrapper.detectMctpEndpoints(yield);
         mctpWrapper.getOwnEIDs(callbackSuccess);
 

@@ -15,6 +15,7 @@
 */
 
 #include "mctp_wrapper.hpp"
+#include "utils.hpp"
 
 #include <boost/asio.hpp>
 #include <iostream>
@@ -72,32 +73,29 @@ int main(int argc, char* argv[])
         std::vector<uint8_t> request = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
         mctpWrapper.sendReceiveAsync(recvCB, deviceId, request,
                                      std::chrono::milliseconds(100));
-        boost::asio::spawn(
-            io,
-            [&mctpWrapper, deviceId](boost::asio::yield_context yield) {
-                // GetUID request
-                std::vector<uint8_t> request2 = {1, 143, 0, 3, 0,
-                                                 0, 0,   0, 1, 0};
-                std::cout << "Before sendReceiveYield" << std::endl;
-                auto rcvStatus = mctpWrapper.sendReceiveYield(
-                    yield, deviceId, request2, std::chrono::milliseconds(100));
-                if (rcvStatus.first)
+        mctpw::spawn(io, [&mctpWrapper,
+                          deviceId](boost::asio::yield_context yield) {
+            // GetUID request
+            std::vector<uint8_t> request2 = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
+            std::cout << "Before sendReceiveYield" << std::endl;
+            auto rcvStatus = mctpWrapper.sendReceiveYield(
+                yield, deviceId, request2, std::chrono::milliseconds(100));
+            if (rcvStatus.first)
+            {
+                std::cout << "Yield Error " << rcvStatus.first.message()
+                          << '\n';
+            }
+            else
+            {
+                std::cout << "Yield Response ";
+                for (int n : rcvStatus.second)
                 {
-                    std::cout << "Yield Error " << rcvStatus.first.message()
-                              << '\n';
+                    std::cout << n << ' ';
                 }
-                else
-                {
-                    std::cout << "Yield Response ";
-                    for (int n : rcvStatus.second)
-                    {
-                        std::cout << n << ' ';
-                    }
-                    std::cout << '\n';
-                }
-                return;
-            },
-            {});
+                std::cout << '\n';
+            }
+            return;
+        });
     };
 
     mctpWrapper.detectMctpEndpointsAsync(registerCB);

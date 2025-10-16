@@ -14,6 +14,9 @@
 // limitations under the License.
 */
 
+#pragma once
+
+#include <boost/asio/spawn.hpp>
 #include <expected>
 #include <sdbusplus/asio/connection.hpp>
 
@@ -131,6 +134,19 @@ std::expected<Property, boost::system::error_code>
     {
         return std::unexpected(val.error());
     }
+}
+
+template <typename Executor, typename F>
+auto spawn(Executor&& ex, F&& function)
+{
+    return boost::asio::spawn(std::forward<Executor>(ex),
+                              std::forward<F>(function),
+                              [](const std::exception_ptr& e) {
+                                  if (e)
+                                  {
+                                      std::rethrow_exception(e);
+                                  }
+                              });
 }
 
 } // namespace mctpw

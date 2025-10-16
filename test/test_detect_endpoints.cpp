@@ -1,5 +1,6 @@
 #include "mctp_wrapper.hpp"
 #include "stubs/stub_process.hpp"
+#include "utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -35,16 +36,14 @@ TEST(DetectEndPointsTest, Yield)
                              mctpw::BindingType::mctpOverSmBus);
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
-    boost::asio::spawn(io,
-                       [&mctpWrapper, &io](boost::asio::yield_context yield) {
-                           mctpWrapper.detectMctpEndpoints(yield);
-                           auto eidMap = mctpWrapper.getEndpointMap();
-                           EXPECT_EQ(eidMap.size(), 2);
-                           EXPECT_TRUE(eidMap.contains(9));
-                           EXPECT_TRUE(eidMap.contains(10));
-                           io.stop();
-                       },
-                       {});
+    mctpw::spawn(io, [&mctpWrapper, &io](boost::asio::yield_context yield) {
+        mctpWrapper.detectMctpEndpoints(yield);
+        auto eidMap = mctpWrapper.getEndpointMap();
+        EXPECT_EQ(eidMap.size(), 2);
+        EXPECT_TRUE(eidMap.contains(9));
+        EXPECT_TRUE(eidMap.contains(10));
+        io.stop();
+    });
     io.run_for(std::chrono::seconds(mesonTestTimeout));
 }
 

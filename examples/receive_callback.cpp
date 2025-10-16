@@ -15,6 +15,7 @@
 */
 
 #include "mctp_wrapper.hpp"
+#include "utils.hpp"
 
 #include <boost/asio.hpp>
 #include <iostream>
@@ -74,20 +75,16 @@ int main(int argc, char* argv[])
         std::vector<uint8_t> request = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};
         mctpWrapper.sendAsync(sendCB, eid, 0, false, request);
 
-        boost::asio::spawn(
-            io,
-            [&mctpWrapper, eid](boost::asio::yield_context yield) {
-                // GetUID request
-                std::vector<uint8_t> request2 = {1, 143, 2, 3};
-                std::vector<uint8_t> response;
-                auto status =
-                    mctpWrapper.sendYield(yield, eid, 0, false, request2);
-                std::cout << "Yield Status "
-                          << (status.first ? status.first.message() : "true")
-                          << ". Send status " << status.second << '\n';
-                return;
-            },
-            {});
+        mctpw::spawn(io, [&mctpWrapper, eid](boost::asio::yield_context yield) {
+            // GetUID request
+            std::vector<uint8_t> request2 = {1, 143, 2, 3};
+            std::vector<uint8_t> response;
+            auto status = mctpWrapper.sendYield(yield, eid, 0, false, request2);
+            std::cout << "Yield Status "
+                      << (status.first ? status.first.message() : "true")
+                      << ". Send status " << status.second << '\n';
+            return;
+        });
     };
 
     mctpWrapper.detectMctpEndpointsAsync(registerCB);
