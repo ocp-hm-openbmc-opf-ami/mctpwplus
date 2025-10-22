@@ -27,11 +27,11 @@ static void onDeviceUpdate(void*, const Event& evt, boost::asio::yield_context&)
     switch (evt.type)
     {
         case Event::EventType::deviceAdded: {
-            std::cout << "Device added " << static_cast<int>(evt.eid) << '\n';
+            std::cout << "Device added " << evt.deviceId << '\n';
         }
         break;
         case Event::EventType::deviceRemoved: {
-            std::cout << "Device removed " << static_cast<int>(evt.eid) << '\n';
+            std::cout << "Device removed " << evt.deviceId << '\n';
         }
         break;
     }
@@ -108,12 +108,11 @@ int main(int argc, char* argv[])
             return;
         }
 
-        auto& ep = mctpWrapper.getEndpointMap();
+        auto& ep = mctpWrapper.getEndpointMapExtended();
         for (auto& i : ep)
         {
 
-            std::cout << "EID:" << static_cast<unsigned>(i.first)
-                      << " Service:" << i.second << '\n';
+            std::cout << i << '\n';
         }
     };
 

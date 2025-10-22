@@ -28,9 +28,7 @@ using mctpw::MessageType;
 static void onDeviceUpdate(void*, const mctpw::Event& evt,
                            boost::asio::yield_context&)
 {
-    std::cout << "Event on " << evt.serviceName << ". EID "
-              << static_cast<int>(evt.eid) << ". Type "
-              << static_cast<int>(evt.type) << std::endl;
+    std::cout << "Event on " << evt.deviceId << std::endl;
 }
 
 int main(int argc, char* argv[])
@@ -102,13 +100,8 @@ int main(int argc, char* argv[])
     mctpw::spawn(io, [&io, &config, &ctrlC](boost::asio::yield_context yield) {
         mctpw::MCTPWrapper mctpWrapper(io, config, onDeviceUpdate, nullptr);
         mctpWrapper.detectMctpEndpoints(yield);
-
-        mctpWrapper.getOwnEIDs([](mctpw::OwnEIDChange eidChange) {
-            mctpw::OwnEIDChange::EIDChangeData* eidChangeData =
-                reinterpret_cast<mctpw::OwnEIDChange::EIDChangeData*>(
-                    eidChange.context);
-            std::cerr << "EID " << static_cast<int>(eidChangeData->eid)
-                      << " on " << eidChangeData->service << '\n';
+        mctpWrapper.getOwnEIDs([](mctpw::DeviceID ownEID) {
+            std::cerr << "Own EID change " << ownEID << std::endl;
         });
 
         boost::asio::steady_timer timer(io);

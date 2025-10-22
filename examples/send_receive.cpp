@@ -66,8 +66,7 @@ int main(int argc, char* argv[])
         auto& ep = mctpWrapper.getEndpointMapExtended();
         for (auto& i : ep)
         {
-            std::cout << "EID:" << static_cast<unsigned>(i.first.id)
-                      << " Service:" << i.second << std::endl;
+            std::cout << i << std::endl;
         }
         // GetVersion request for PLDM Base
         std::vector<uint8_t> request = {1, 143, 0, 3, 0, 0, 0, 0, 1, 0};

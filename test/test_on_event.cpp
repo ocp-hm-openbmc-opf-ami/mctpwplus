@@ -12,11 +12,11 @@ TEST(MCTPDynamicTest, Test1)
     boost::asio::io_context io;
     MCTPConfiguration config(mctpw::MessageType::pldm,
                              mctpw::BindingType::mctpOverSmBus);
-    auto callbackSuccess = [](mctpw::OwnEIDChange&) {};
+    auto callbackSuccess = [](mctpw::DeviceID) {};
 
     MCTPWrapper mctpWrapper(
         io, config, [](void*, const Event& evt, boost::asio::yield_context&) {
-            std::cout << "EID. " << static_cast<int>(evt.eid) << '\n';
+            std::cout << evt.deviceId << '\n';
         });
 
     mctpw::spawn(io, [this, &mctpWrapper, &io,

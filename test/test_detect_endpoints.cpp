@@ -13,15 +13,14 @@ TEST(DetectEndPointsTest, Async)
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
     mctpWrapper.detectMctpEndpointsAsync(
         [&mctpWrapper, &io](boost::system::error_code, void*) {
-            auto eidMap = mctpWrapper.getEndpointMap();
+            auto eidMap = mctpWrapper.getEndpointMapExtended();
             for (auto& entry : eidMap)
             {
-                std::cout << " Eid = " << static_cast<int>(entry.first) << '\n';
+                std::cout << entry << '\n';
             }
             EXPECT_EQ(eidMap.size(), 2);
-            EXPECT_TRUE(eidMap.contains(9));
-            EXPECT_TRUE(eidMap.contains(10));
-
+            EXPECT_TRUE(eidMap.contains(DeviceID(9, 0)));
+            EXPECT_TRUE(eidMap.contains(DeviceID(10, 0)));
             io.stop();
         });
     io.run_for(std::chrono::seconds(mesonTestTimeout));
@@ -38,10 +37,10 @@ TEST(DetectEndPointsTest, Yield)
 
     mctpw::spawn(io, [&mctpWrapper, &io](boost::asio::yield_context yield) {
         mctpWrapper.detectMctpEndpoints(yield);
-        auto eidMap = mctpWrapper.getEndpointMap();
+        auto eidMap = mctpWrapper.getEndpointMapExtended();
         EXPECT_EQ(eidMap.size(), 2);
-        EXPECT_TRUE(eidMap.contains(9));
-        EXPECT_TRUE(eidMap.contains(10));
+        EXPECT_TRUE(eidMap.contains(DeviceID(9, 0)));
+        EXPECT_TRUE(eidMap.contains(DeviceID(10, 0)));
         io.stop();
     });
     io.run_for(std::chrono::seconds(mesonTestTimeout));
@@ -56,11 +55,10 @@ TEST(DetectEndPointsTest, Sync)
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
     mctpWrapper.detectMctpEndpoints();
-    auto eidMap = mctpWrapper.getEndpointMap();
+    auto eidMap = mctpWrapper.getEndpointMapExtended();
     EXPECT_EQ(eidMap.size(), 2);
-    EXPECT_TRUE(eidMap.contains(9));
-    EXPECT_TRUE(eidMap.contains(10));
-    EXPECT_EQ(eidMap[9], service_names::mctpSMBus());
+    EXPECT_TRUE(eidMap.contains(DeviceID(9, 0)));
+    EXPECT_TRUE(eidMap.contains(DeviceID(10, 0)));
     io.stop();
 }
 

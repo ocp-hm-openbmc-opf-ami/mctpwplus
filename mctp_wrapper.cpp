@@ -28,6 +28,12 @@
 
 using namespace mctpw;
 
+std::ostream& operator<<(std::ostream& os, const DeviceID& devID)
+{
+    return os << "[network ID :" << static_cast<unsigned>(devID.networkId())
+              << ", EID :" << static_cast<unsigned>(devID.mctpEID()) << "]";
+}
+
 template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
 using MctpPropertiesVariantType =
@@ -58,8 +64,8 @@ MCTPConfiguration::MCTPConfiguration(MessageType msgType, BindingType binding,
     setVendorMessageType(vendorMsgType, vendorMsgTypeMask);
 }
 
-MCTPWrapper::MCTPWrapper(boost::asio::io_context& ioContext,
-                         const MCTPConfiguration& configIn,
+MCTPWrapper::MCTPWrapper(const MCTPConfiguration& configIn,
+                         boost::asio::io_context& ioContext,
                          const ReconfigurationCallback& networkChangeCb,
                          const ReceiveMessageCallback& rxCb) :
     config(configIn), pimpl(std::make_unique<MCTPImpl>(ioContext, configIn,
@@ -67,13 +73,32 @@ MCTPWrapper::MCTPWrapper(boost::asio::io_context& ioContext,
 {
 }
 
-MCTPWrapper::MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
+MCTPWrapper::MCTPWrapper(boost::asio::io_context& ioContext,
                          const MCTPConfiguration& configIn,
+                         const ReconfigurationCallback& networkChangeCb,
+                         const ExtendedReceiveMessageCallback& exRxCb) :
+    config(configIn), pimpl(std::make_unique<MCTPImpl>(
+                          ioContext, configIn, networkChangeCb, nullptr))
+{
+    setExtendedReceiveCallback(exRxCb);
+}
+
+MCTPWrapper::MCTPWrapper(const MCTPConfiguration& configIn,
+                         std::shared_ptr<sdbusplus::asio::connection> conn,
                          const ReconfigurationCallback& networkChangeCb,
                          const ReceiveMessageCallback& rxCb) :
     config(configIn),
     pimpl(std::make_unique<MCTPImpl>(conn, configIn, networkChangeCb, rxCb))
 {
+}
+MCTPWrapper::MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
+                         const MCTPConfiguration& configIn,
+                         const ReconfigurationCallback& networkChangeCb,
+                         const ExtendedReceiveMessageCallback& exRxCb) :
+    config(configIn),
+    pimpl(std::make_unique<MCTPImpl>(conn, configIn, networkChangeCb, nullptr))
+{
+    setExtendedReceiveCallback(exRxCb);
 }
 
 MCTPWrapper::~MCTPWrapper() noexcept = default;
@@ -217,20 +242,15 @@ std::pair<boost::system::error_code, int>
     return pimpl->sendYield(yield, extendedEID, msgTag, tagOwner, request);
 }
 
-const MCTPWrapper::EndpointMap& MCTPWrapper::getEndpointMap()
-{
-    auto& extendedMap = pimpl->getEndpointMap();
-    static EndpointMap localEidMap;
-    for (auto [deviceId, service] : extendedMap)
-    {
-        localEidMap.emplace(deviceId.mctpEID(), service);
-    }
-    return localEidMap;
-}
-
 const MCTPWrapper::EndpointMapExtended& MCTPWrapper::getEndpointMapExtended()
 {
-    return pimpl->getEndpointMap();
+    const auto& legacyMap = pimpl->getEndpointMap();
+    returnEndpointMap.clear();
+    for (auto& [key, _] : legacyMap)
+    {
+        returnEndpointMap.insert(key);
+    }
+    return returnEndpointMap;
 }
 
 void MCTPWrapper::triggerMCTPDeviceDiscovery(const eid_t dstEId)

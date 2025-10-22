@@ -64,11 +64,10 @@ int main(int argc, char* argv[])
             return;
         }
 
-        auto& ep = mctpWrapper.getEndpointMap();
+        auto& ep = mctpWrapper.getEndpointMapExtended();
         for (auto& i : ep)
         {
-            std::cout << "EID:" << static_cast<unsigned>(i.first)
-                      << " Service:" << i.second << std::endl;
+            std::cout << i << std::endl;
         }
 
         // GetVersion request for PLDM Base

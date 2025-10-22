@@ -15,11 +15,10 @@ TEST(GetOwnEIDs, SMBus)
     MCTPWrapper mctpWrapper(conn, config, nullptr, nullptr);
 
     size_t callbackCount = 0;
-    auto callbackSuccess = [&callbackCount](mctpw::OwnEIDChange& evt) {
+    auto callbackSuccess = [&callbackCount](mctpw::DeviceID devID) {
         callbackCount++;
         uint8_t expectedEID = 4;
-        auto actulEID =
-            static_cast<mctpw::OwnEIDChange::EIDChangeData*>(evt.context)->eid;
+        auto actulEID = devID.mctpEID();
         EXPECT_EQ(actulEID, expectedEID);
     };
     mctpw::spawn(conn->get_io_context(), [&](boost::asio::yield_context yield) {

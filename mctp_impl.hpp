@@ -82,7 +82,7 @@ class MCTPImpl
         std::function<void(boost::system::error_code, void*)>;
 
     /* Endpoint map entry: DeviceID,pair(bus,service) */
-    using EndpointMapExtended = MCTPWrapper::EndpointMapExtended;
+    using EndpointMapExtendedLegacy = MCTPWrapper::EndpointMapExtendedLegacy;
 
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
@@ -133,9 +133,9 @@ class MCTPImpl
     /**
      * @brief Get a reference to internaly maintained EndpointMap
      *
-     * @return const EndpointMapExtended&
+     * @return const EndpointMapExtendedLegacy&
      */
-    inline const EndpointMapExtended& getEndpointMap() const
+    inline const EndpointMapExtendedLegacy& getEndpointMap() const
     {
         return this->endpointMap;
     }
@@ -286,7 +286,7 @@ class MCTPImpl
     void setExtendedReceiveCallback(ExtendedReceiveMessageCallback callback);
 
   private:
-    EndpointMapExtended endpointMap;
+    EndpointMapExtendedLegacy endpointMap;
     bool useSocket = false;
     std::unordered_set<std::string> matchedBuses;
     std::vector<VersionFields> responderVersions;

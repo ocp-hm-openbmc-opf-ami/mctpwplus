@@ -762,12 +762,7 @@ void MCTPImpl::triggerGetOwnEID(const std::string& serviceName)
         {
             return;
         }
-        OwnEIDChange evt;
-        OwnEIDChange::EIDChangeData data;
-        data.eid = eid;
-        data.service = getReadableName(serviceName);
-        evt.context = &data;
-        this->eidChangeCallback(evt);
+        this->eidChangeCallback(DeviceID(eid, getNetworkID(serviceName)));
     }
     catch (const std::exception& e)
     {
@@ -878,10 +873,8 @@ void MCTPImpl::onNewEID(const std::string& serviceName, DeviceID extendedEID)
         connection->get_io_context(),
         [this, extendedEID, serviceName](boost::asio::yield_context yield) {
             mctpw::Event event;
-            event.eid = extendedEID.mctpEID();
             event.deviceId = extendedEID;
             event.type = mctpw::Event::EventType::deviceAdded;
-            event.serviceName = this->getReadableName(serviceName);
             this->networkChangeCallback(this, event, yield);
         });
 }
@@ -999,9 +992,7 @@ void MCTPImpl::onEIDRemoved(const std::string& serviceName, DeviceID deviceID)
         [this, deviceID, serviceName](boost::asio::yield_context yield) {
             mctpw::Event event;
             event.type = mctpw::Event::EventType::deviceRemoved;
-            event.eid = deviceID.mctpEID();
             event.deviceId = deviceID;
-            event.serviceName = this->getReadableName(serviceName);
             this->networkChangeCallback(this, event, yield);
         });
 }
@@ -1126,15 +1117,9 @@ void MCTPImpl::onOwnEIDChange(std::string serviceName, eid_t eid)
     {
         return;
     }
-    OwnEIDChange evt;
-    OwnEIDChange::EIDChangeData data;
-    data.eid = eid;
-    serviceName = getReadableName(serviceName);
-    data.service = std::move(serviceName);
-    evt.context = &data;
     if (this->eidChangeCallback)
     {
-        this->eidChangeCallback(evt);
+        this->eidChangeCallback(DeviceID(eid, getNetworkID(serviceName)));
     }
 }
 

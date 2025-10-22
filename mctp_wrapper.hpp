@@ -22,6 +22,7 @@
 #include <optional>
 #include <sdbusplus/asio/connection.hpp>
 #include <string>
+#include <unordered_set>
 #include <utility>
 
 namespace mctpw
@@ -62,6 +63,8 @@ struct DeviceID
     }
 };
 } // namespace mctpw
+
+std::ostream& operator<<(std::ostream& os, const mctpw::DeviceID& devID);
 
 namespace std
 {
@@ -243,21 +246,7 @@ struct Event
         // ownEIDChange
     };
     EventType type;
-    eid_t eid;
     DeviceID deviceId;
-    std::string serviceName = "";
-};
-
-struct OwnEIDChange
-{
-    // This structure is expected to change in future. Thus providing a void* to
-    // have backward compatibility /avoid ABI breaks.
-    struct EIDChangeData
-    {
-        eid_t eid;
-        std::string service;
-    };
-    void* context;
 };
 
 using ReconfigurationCallback =
@@ -266,7 +255,7 @@ using ReceiveMessageCallback =
     std::function<void(void*, eid_t, bool, uint8_t, const ByteArray&, int)>;
 using ExtendedReceiveMessageCallback =
     std::function<void(void*, DeviceID, bool, uint8_t, const ByteArray&, int)>;
-using OwnEIDChangeCallback = std::function<void(OwnEIDChange&)>;
+using OwnEIDChangeCallback = std::function<void(DeviceID)>;
 
 /**
  * @brief Wrapper class to access MCTP functionalities
@@ -277,10 +266,9 @@ class MCTPWrapper
   public:
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
-    /* Endpoint map entry: LocalEID, pair(bus,service) */
-    using EndpointMap = std::unordered_map<eid_t, std::string>;
     /* Endpoint map entry: DeviceID, pair(bus,service) */
-    using EndpointMapExtended = std::unordered_map<DeviceID, std::string>;
+    using EndpointMapExtended = std::unordered_set<DeviceID>;
+    using EndpointMapExtendedLegacy = std::unordered_map<DeviceID, std::string>;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
@@ -299,10 +287,52 @@ class MCTPWrapper
      * @param rxCb Callback to be executed when new MCTP message is
      * received.
      */
+  private:
+    MCTPWrapper(const MCTPConfiguration& configIn,
+                boost::asio::io_context& ioContext,
+                const ReconfigurationCallback& networkChangeCb,
+                const ReceiveMessageCallback& rxCb);
+
+  public:
+    MCTPWrapper(boost::asio::io_context& ioContext,
+                const MCTPConfiguration& configIn) :
+        MCTPWrapper(configIn, ioContext, nullptr, nullptr)
+    {
+    }
+
     MCTPWrapper(boost::asio::io_context& ioContext,
                 const MCTPConfiguration& configIn,
-                const ReconfigurationCallback& networkChangeCb = nullptr,
-                const ReceiveMessageCallback& rxCb = nullptr);
+                const ReconfigurationCallback& networkChangeCb) :
+        MCTPWrapper(configIn, ioContext, networkChangeCb, nullptr)
+    {
+    }
+
+    MCTPWrapper(boost::asio::io_context& ioContext,
+                const MCTPConfiguration& configIn,
+                const ReconfigurationCallback& networkChangeCb,
+                const ReceiveMessageCallback& rxCb) :
+        MCTPWrapper(configIn, ioContext, networkChangeCb, rxCb)
+    {
+    }
+
+    MCTPWrapper(boost::asio::io_context& ioContext,
+                const MCTPConfiguration& configIn,
+                const ReconfigurationCallback& networkChangeCb,
+                std::nullptr_t n1) :
+        MCTPWrapper(configIn, ioContext, networkChangeCb, n1)
+    {
+    }
+
+    MCTPWrapper(boost::asio::io_context& ioContext,
+                const MCTPConfiguration& configIn, std::nullptr_t n1,
+                std::nullptr_t n2) : MCTPWrapper(configIn, ioContext, n1, n2)
+    {
+    }
+
+    MCTPWrapper(boost::asio::io_context& ioContext,
+                const MCTPConfiguration& configIn,
+                const ReconfigurationCallback& networkChangeCb,
+                const ExtendedReceiveMessageCallback& exRxCb);
     /**
      * @brief Construct a new MCTPWrapper object
      *
@@ -316,11 +346,52 @@ class MCTPWrapper
      * @param rxCb Callback to be executed when new MCTP message is
      * received.
      */
+  private:
+    MCTPWrapper(const MCTPConfiguration& configIn,
+                std::shared_ptr<sdbusplus::asio::connection> conn,
+                const ReconfigurationCallback& networkChangeCb,
+                const ReceiveMessageCallback& rxCb);
+
+  public:
+    MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
+                const MCTPConfiguration& configIn) :
+        MCTPWrapper(configIn, conn, nullptr, nullptr)
+    {
+    }
+
     MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
                 const MCTPConfiguration& configIn,
-                const ReconfigurationCallback& networkChangeCb = nullptr,
-                const ReceiveMessageCallback& rxCb = nullptr);
+                const ReconfigurationCallback& networkChangeCb) :
+        MCTPWrapper(configIn, conn, networkChangeCb, nullptr)
+    {
+    }
 
+    MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
+                const MCTPConfiguration& configIn,
+                const ReconfigurationCallback& networkChangeCb,
+                const ReceiveMessageCallback& rxCb) :
+        MCTPWrapper(configIn, conn, networkChangeCb, rxCb)
+    {
+    }
+
+    MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
+                const MCTPConfiguration& configIn,
+                const ReconfigurationCallback& networkChangeCb,
+                std::nullptr_t n1) :
+        MCTPWrapper(configIn, conn, networkChangeCb, n1)
+    {
+    }
+
+    MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
+                const MCTPConfiguration& configIn, std::nullptr_t n1,
+                std::nullptr_t n2) : MCTPWrapper(configIn, conn, n1, n2)
+    {
+    }
+
+    MCTPWrapper(std::shared_ptr<sdbusplus::asio::connection> conn,
+                const MCTPConfiguration& configIn,
+                const ReconfigurationCallback& networkChangeCb,
+                const ExtendedReceiveMessageCallback& exRxCb);
     /**
      * @brief Destroy the MCTPWrapper object
      *
@@ -353,13 +424,6 @@ class MCTPWrapper
      * @return boost::system::error_code
      */
     boost::system::error_code detectMctpEndpoints();
-    /**
-     * @brief Get a reference to internaly maintained EndpointMap without
-     * network id
-     *
-     * @return const EndpointMap&
-     */
-    const EndpointMap& getEndpointMap();
     /**
      * @brief Get a reference to internaly maintained EndpointMap
      *
@@ -667,6 +731,7 @@ class MCTPWrapper
   private:
     std::unique_ptr<MCTPImpl> pimpl;
     NetworkID findNetworkId(const eid_t dstEId);
+    EndpointMapExtended returnEndpointMap;
 };
 
 } // namespace mctpw

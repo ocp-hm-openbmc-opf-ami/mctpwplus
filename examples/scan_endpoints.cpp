@@ -37,11 +37,10 @@ int main(int argc, char*[])
     MCTPWrapper mctpWrapper(io, config, nullptr, nullptr);
 
     auto printEPMap = [&mctpWrapper]() {
-        auto epMap = mctpWrapper.getEndpointMap();
-        for (const auto& [eid, serviceName] : epMap)
+        auto epMap = mctpWrapper.getEndpointMapExtended();
+        for (const auto devId : epMap)
         {
-            std::cout << "Eid " << static_cast<int>(eid) << " on "
-                      << serviceName << '\n';
+            std::cout << devId << std::endl;
         }
     };
 
