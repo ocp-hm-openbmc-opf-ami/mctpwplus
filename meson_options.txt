@@ -4,4 +4,7 @@ option(
 option(
     'tests', type: 'feature', description: 'Build Mctpwplus Unit Test.', value : 'enabled'
 )
+option(
+    'afmctp', type: 'feature', description: 'Builds mctpwplus to use AF MCTP stack'
+)
 

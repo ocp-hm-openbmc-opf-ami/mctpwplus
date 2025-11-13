@@ -8,6 +8,7 @@ project(
 )
 
 build_examples = get_option('examples')
+build_afmctp = get_option('afmctp')
 
 boost_dep = dependency(
     'boost',
@@ -45,7 +46,12 @@ systemd_system_unit_dir = systemd.get_pkgconfig_variable(
 
 threads = dependency('threads')
 
-src_files = ['mctp_wrapper.cpp', 'mctp_impl.cpp', 'socket_if.cpp']
+if build_afmctp.enabled()
+    src_files = ['afmctp-stack/mctp_wrapper.cpp', 'afmctp-stack/mctp_impl.cpp']
+else
+    src_files = ['mctp_wrapper.cpp', 'mctp_impl.cpp', 'socket_if.cpp']
+endif
+
 no_thread_flags = [
     '-DBOOST_ASIO_DISABLE_THREADS',
     '-DBOOST_NO_RTTI',
@@ -69,7 +75,11 @@ deps_no_thread = [
     no_thread_dep,
 ]
 
-root_inc = include_directories('.')
+if build_afmctp.enabled()
+    root_inc = include_directories('afmctp-stack')
+else
+    root_inc = include_directories('.')
+endif
 
 mctpwplus = shared_library(
     'mctpwplus',
@@ -99,7 +109,12 @@ mctpwplus_nothread_dep = declare_dependency(
     dependencies: deps_no_thread,
 )
 
-install_headers('mctp_wrapper.hpp')
+if build_afmctp.enabled()
+    install_headers('afmctp-stack/mctp_wrapper.hpp')
+else
+    install_headers('mctp_wrapper.hpp')
+endif
+
 
 if build_examples.enabled()
     subdir('examples')
