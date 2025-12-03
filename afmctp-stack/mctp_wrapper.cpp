@@ -135,6 +135,14 @@ boost::system::error_code MCTPWrapper::detectMctpEndpoints()
 
 NetworkID MCTPWrapper::findNetworkId(const eid_t dstEId)
 {
+    auto availableEIDs = this->getEndpointMapExtended();
+    for (const auto& devID : availableEIDs)
+    {
+        if (devID.mctpEID() == dstEId)
+        {
+            return devID.networkId();
+        }
+    }
     return 1;
 }
 

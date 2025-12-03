@@ -74,14 +74,12 @@ class MCTPImpl
 
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
-
     using EndpointMapExtended = MCTPWrapper::EndpointMapExtended;
-
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
-
     using HandshakeCallback = std::function<void(boost::system::error_code)>;
+    using datagram = boost::asio::generic::datagram_protocol;
 
     std::shared_ptr<sdbusplus::asio::connection> connection;
     mctpw::MCTPConfiguration config{};
@@ -308,7 +306,7 @@ class MCTPImpl
         const std::string objectPath,
         const std::vector<std::string>& dbusInterfaces);
 
-    BindingType estimateBindingType(const EndpointInfo& epInfo);
+    BindingType estimateBindingType(const uint32_t networkId);
     bool eligibleForReconfigurationCallback(const EndpointInfo& epInfo);
     void handleIncomingMessage(
         std::shared_ptr<boost::asio::generic::datagram_protocol::socket>,

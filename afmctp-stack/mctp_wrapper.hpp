@@ -316,7 +316,7 @@ struct MCTPConfiguration
      */
     inline void setVendorId(uint16_t vid)
     {
-        this->vendorId = std::make_optional<uint16_t>(htobe16(vid));
+        this->vendorId = std::make_optional<uint16_t>(vid);
     }
 
     /**
@@ -328,8 +328,8 @@ struct MCTPConfiguration
      */
     inline void setVendorMessageType(uint16_t msgType, uint16_t mask)
     {
-        this->vendorMessageType = std::make_optional<VendorMessageType>(
-            htobe16(msgType), htobe16(mask));
+        this->vendorMessageType =
+            std::make_optional<VendorMessageType>(msgType, mask);
     }
 };
 
