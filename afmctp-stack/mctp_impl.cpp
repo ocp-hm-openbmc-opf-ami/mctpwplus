@@ -101,7 +101,19 @@ bool MCTPImpl::eligibleForReconfigurationCallback(const EndpointInfo& epInfo)
         {
             if (static_cast<MessageType>(epMsgType) == config.type)
             {
-                messageTypeMatched = true;
+                if (config.type == MessageType::vdpci &&
+                    config.vendorMessageType.has_value())
+                {
+                    auto vdmTypes = epInfo.getVDMTypes();
+                    messageTypeMatched =
+                        std::find(vdmTypes.begin(), vdmTypes.end(),
+                                  config.vendorMessageType->cmdSetType()) !=
+                        vdmTypes.end();
+                }
+                else
+                {
+                    messageTypeMatched = true;
+                }
                 break;
             }
         }
@@ -177,43 +189,51 @@ void MCTPImpl::setupEndpoints(std::optional<boost::asio::yield_context> yield)
         sdbusplus::message::object_path,
         DictType<std::string, DictType<std::string, MctpPropertiesVariantType>>>
         values;
-    auto getManagedObjects = mctpw::methodCall<decltype(values)>(
-        *connection, ccMctpService, "/au/com/codeconstruct/mctp1",
-        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", yield);
-    if (getManagedObjects)
+    try
     {
-        values = getManagedObjects.value();
+        auto getManagedObjects = mctpw::methodCall<decltype(values)>(
+            *connection, ccMctpService, "/au/com/codeconstruct/mctp1",
+            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", yield);
+        if (getManagedObjects)
+        {
+            values = getManagedObjects.value();
+        }
+        else
+        {
+            throw std::runtime_error("No managed objects read from " +
+                                     ccMctpService + " Bus ");
+        }
+        for (const auto& [objectPath, dbusInterfaces] : values)
+        {
+            if (objectPath.str.starts_with(
+                    "/au/com/codeconstruct/mctp1/networks"))
+            {
+                handleEndpointAddition(objectPath.str, dbusInterfaces);
+            }
+            else if (objectPath.str.starts_with(
+                         "/au/com/codeconstruct/mctp1/interfaces"))
+            {
+                handleIfaceAddition(objectPath.str, dbusInterfaces);
+            }
+            else
+            {
+                phosphor::logging::log<phosphor::logging::level::INFO>(
+                    (std::string("Interface ") + objectPath.str +
+                     " addition not handelled")
+                        .c_str());
+            }
+        }
     }
-    else
+    catch (const std::exception& e)
     {
         phosphor::logging::log<phosphor::logging::level::WARNING>(
             (std::string("Error getting managed objects on ") + ccMctpService +
              " Bus ")
                 .c_str());
-        return;
-    }
-    for (const auto& [objectPath, dbusInterfaces] : values)
-    {
-        if (objectPath.str.starts_with("/au/com/codeconstruct/mctp1/networks"))
-        {
-            handleEndpointAddition(objectPath.str, dbusInterfaces);
-        }
-        else if (objectPath.str.starts_with(
-                     "/au/com/codeconstruct/mctp1/interfaces"))
-        {
-            handleIfaceAddition(objectPath.str, dbusInterfaces);
-        }
-        else
-        {
-            phosphor::logging::log<phosphor::logging::level::INFO>(
-                (std::string("Interface ") + objectPath.str +
-                 " addition not handelled")
-                    .c_str());
-        }
     }
     try
     {
-        getManagedObjects = mctpw::methodCall<decltype(values)>(
+        auto getManagedObjects = mctpw::methodCall<decltype(values)>(
             *connection, spdmService, "/", "org.freedesktop.DBus.ObjectManager",
             "GetManagedObjects", yield);
         if (getManagedObjects)
@@ -222,11 +242,17 @@ void MCTPImpl::setupEndpoints(std::optional<boost::asio::yield_context> yield)
         }
         else
         {
-            phosphor::logging::log<phosphor::logging::level::WARNING>(
-                (std::string("No manager objects read from ") + spdmService +
-                 " Bus ")
-                    .c_str());
-            return;
+            throw std::runtime_error("No managed objects read from " +
+                                     spdmService + " Bus ");
+        }
+
+        for (const auto& [objectPath, dbusInterfaces] : values)
+        {
+            if (objectPath.str.starts_with(
+                    "/com/intel/spdmd_secure_session/networks"))
+            {
+                handleSPDMEndpointAddition(objectPath.str, dbusInterfaces);
+            }
         }
     }
     catch (const std::exception& e)
@@ -235,15 +261,6 @@ void MCTPImpl::setupEndpoints(std::optional<boost::asio::yield_context> yield)
             (std::string("Error getting managed objects on ") + spdmService +
              " Bus ")
                 .c_str());
-        return;
-    }
-    for (const auto& [objectPath, dbusInterfaces] : values)
-    {
-        if (objectPath.str.starts_with(
-                "/com/intel/spdmd_secure_session/networks"))
-        {
-            handleSPDMEndpointAddition(objectPath.str, dbusInterfaces);
-        }
     }
 }
 
