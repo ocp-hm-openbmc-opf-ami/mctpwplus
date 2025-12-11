@@ -280,6 +280,7 @@ class MCTPImpl
     void onInterfaceRemoved(sdbusplus::message::message& msg);
     void onMessageReceived(sdbusplus::message::message& msg);
     void onPropertiesChanged(sdbusplus::message::message& msg);
+    void onSPDMSessionEvent(sdbusplus::message::message& msg);
 
     void handleEndpointAddition(
         const std::string objectPath,

@@ -787,7 +787,8 @@ void MCTPImpl::setupDbusListener()
         std::bind(&MCTPImpl::onMCTPEvent, this, std::placeholders::_1));
 
     static const std::string spdmRule =
-        "type='signal',path='/com/intel/spdmd_secure_session'";
+        "type='signal',sender='com.intel.spdmd.secure.session',"
+        "path_namespace='/com/intel/spdmd_secure_session'";
     this->spdmWatch = std::make_unique<sdbusplus::bus::match::match>(
         *connection, spdmRule,
         std::bind(&MCTPImpl::onMCTPEvent, this, std::placeholders::_1));
@@ -1160,6 +1161,7 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
     static const std::string intfRemoved = "InterfacesRemoved";
     static const std::string vdmReceived = "VDMReceived";
     static const std::string spdmMessageReceived = "MessageReceived";
+    static const std::string spdmSessionEvent = "PropertiesChanged";
     try
     {
         std::string sender = msg.get_sender();
@@ -1175,6 +1177,10 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
         {
             this->onInterfaceRemoved(msg);
         }
+        if (member == spdmSessionEvent)
+        {
+            this->onSPDMSessionEvent(msg);
+        }
         else if ((member == vdmReceived) || (member == spdmMessageReceived))
         {
             this->onMessageReceived(msg);
@@ -1184,6 +1190,63 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
     {
         phosphor::logging::log<phosphor::logging::level::ERR>(
             (std::string("Exception in onMCTPEvent: ") + e.what()).c_str());
+    }
+}
+
+void MCTPImpl::onSPDMSessionEvent(sdbusplus::message::message& msg)
+{
+    std::string interfaceName;
+    std::map<std::string, MctpPropertiesVariantType> changedProperties;
+    std::vector<std::string> invalidatedProperties;
+
+    msg.read(interfaceName, changedProperties, invalidatedProperties);
+
+    std::string objectPath = msg.get_path();
+
+    if (interfaceName != "com.intel.spdmd_secure_session.spdm_device")
+    {
+        return;
+    }
+
+    auto optDevID = extractDeviceIDFromObjectPath(objectPath);
+    if (!optDevID.has_value())
+    {
+        phosphor::logging::log<phosphor::logging::level::INFO>(
+            (std::string("Failed to extract SPDM endpoint information from  ") +
+             objectPath)
+                .c_str());
+        return;
+    }
+    DeviceID devID(optDevID.value());
+
+    if (!allEndpoints.contains(devID))
+    {
+        std::stringstream ss;
+        ss << "Ignoring " << objectPath << " since " << devID
+           << " is not yet signalled by cc mctpd";
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            ss.str().c_str());
+        return;
+    }
+
+    // Check if SPDMSessionEstablished property changed
+    auto sessionItr = changedProperties.find("SPDMSessionEstablished");
+    if (sessionItr != changedProperties.end())
+    {
+        bool sessionEstablished = std::get<bool>(sessionItr->second);
+        phosphor::logging::log<phosphor::logging::level::INFO>(
+            (std::string("SPDM Session state changed for ") + objectPath +
+             " to " + (sessionEstablished ? "established" : "terminated"))
+                .c_str());
+
+        if (sessionEstablished)
+        {
+            allEndpoints.at(devID).enableSPDMRoute();
+        }
+        else
+        {
+            allEndpoints.at(devID).disableSPDMRoute();
+        }
     }
 }
 
