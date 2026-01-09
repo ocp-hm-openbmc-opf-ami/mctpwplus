@@ -234,8 +234,8 @@ void MCTPImpl::setupEndpoints(std::optional<boost::asio::yield_context> yield)
     try
     {
         auto getManagedObjects = mctpw::methodCall<decltype(values)>(
-            *connection, spdmService, "/", "org.freedesktop.DBus.ObjectManager",
-            "GetManagedObjects", yield);
+            *connection, spdmService, "/com/intel/spdmd_secure_session",
+            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", yield);
         if (getManagedObjects)
         {
             values = getManagedObjects.value();
@@ -289,9 +289,9 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID devID,
                 resp.insert(resp.end(), recvData.begin(), recvData.end());
                 callback(ec, resp);
             },
-            spdmService, "/com/intel/spdmd_secure_session/transport",
+            spdmService, "/xyz/openbmc_project/mctp",
             "xyz.openbmc_project.mctp", "SendReceiveMessage", devID.mctpEID(),
-            devID.networkId(), request[0],
+            static_cast<int32_t>(devID.networkId()), request[0],
             ByteArray(request.begin() + 1, request.end()),
             static_cast<uint16_t>(timeout.count()));
         return;
@@ -373,9 +373,9 @@ std::pair<boost::system::error_code, ByteArray>
     {
         auto recvData = connection->yield_method_call<ByteArray>(
             yield, heapData->receiveResult.first, spdmService,
-            "/com/intel/spdmd_secure_session/transport",
-            "xyz.openbmc_project.mctp", "SendReceiveMessage", devID.mctpEID(),
-            devID.networkId(), request[0],
+            "/xyz/openbmc_project/mctp", "xyz.openbmc_project.mctp",
+            "SendReceiveMessage", devID.mctpEID(),
+            static_cast<int32_t>(devID.networkId()), request[0],
             ByteArray(request.begin() + 1, request.end()),
             static_cast<uint16_t>(timeout.count()));
         heapData->receiveResult.second.push_back(request[0]);
@@ -540,22 +540,32 @@ std::pair<boost::system::error_code, ByteArray>
         ByteArray());
     if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
     {
-        ByteArray recvData = mctpw::methodCall<decltype(recvData)>(
-            *connection, spdmService,
-            "/com/intel/spdmd_secure_session/transport/",
-            "xyz.openbmc_project.mctp", "SendReceiveMessage", devID.mctpEID(),
-            devID.networkId(), request[0],
-            ByteArray(request.begin() + 1, request.end()),
-            static_cast<uint16_t>(timeout.count()));
-        if (recvData.size() > 0)
+        try
         {
-            receiveResult.second.push_back(request[0]);
-            receiveResult.second.insert(receiveResult.second.end(),
-                                        recvData.begin(), recvData.end());
-            receiveResult.first = boost::system::errc::make_error_code(
-                boost::system::errc::success);
+            ByteArray recvData = mctpw::methodCall<decltype(recvData)>(
+                *connection, spdmService, "/xyz/openbmc_project/mctp",
+                "xyz.openbmc_project.mctp", "SendReceiveMessage",
+                devID.mctpEID(), static_cast<int32_t>(devID.networkId()),
+                request[0], ByteArray(request.begin() + 1, request.end()),
+                static_cast<uint16_t>(timeout.count()));
+            if (recvData.size() > 0)
+            {
+                receiveResult.second.push_back(request[0]);
+                receiveResult.second.insert(receiveResult.second.end(),
+                                            recvData.begin(), recvData.end());
+                receiveResult.first = boost::system::errc::make_error_code(
+                    boost::system::errc::success);
+            }
+            return receiveResult;
         }
-        return receiveResult;
+        catch (const std::exception& e)
+        {
+            std::string warnMsg =
+                std::string("sendReceiveBlocked exception: ") + e.what();
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                warnMsg.c_str());
+            return receiveResult;
+        }
     }
 
     boost::system::error_code ec;
@@ -658,9 +668,9 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID devID,
             [callback](boost::system::error_code ec, int rc) {
                 callback(ec, rc + 1);
             },
-            spdmService, "/com/intel/spdmd_secure_session/transport",
+            spdmService, "/xyz/openbmc_project/mctp",
             "xyz.openbmc_project.mctp", "SendMessage", devID.mctpEID(),
-            devID.networkId(), msgTag, request[0],
+            static_cast<int32_t>(devID.networkId()), msgTag, request[0],
             ByteArray(request.begin() + 1, request.end()));
         return;
     }
@@ -716,9 +726,9 @@ std::pair<boost::system::error_code, int>
         boost::system::error_code ec =
             boost::system::errc::make_error_code(boost::system::errc::success);
         int status = connection->yield_method_call<int>(
-            yield, ec, spdmService, "/com/intel/spdmd_secure_session/transport",
+            yield, ec, spdmService, "/xyz/openbmc_project/mctp",
             "xyz.openbmc_project.mctp", "SendMessage", devID.mctpEID(),
-            devID.networkId(), msgTag, request[0],
+            static_cast<int32_t>(devID.networkId()), msgTag, request[0],
             ByteArray(request.begin() + 1, request.end()));
         return std::make_pair(ec, status);
     }
