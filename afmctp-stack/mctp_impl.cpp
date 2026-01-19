@@ -578,11 +578,12 @@ std::pair<boost::system::error_code, ByteArray>
     addr.smctp_tag = MCTP_TAG_OWNER;
     try
     {
-        auto socketFD = socket(AF_MCTP, SOCK_DGRAM, 0);
+        int socketFD = socket(AF_MCTP, SOCK_DGRAM, 0);
         if (socketFD < 0)
         {
             throw std::runtime_error("Failed to create socket");
         }
+        ScopedFD scopedSocketFD(socketFD);
 
         // Convert std::chrono::milliseconds to struct timeval
         struct timeval tv;
