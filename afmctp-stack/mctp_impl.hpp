@@ -251,6 +251,22 @@ class MCTPImpl
         sendYield(boost::asio::yield_context& yield, const DeviceID devID,
                   const uint8_t msgTag, const bool tagOwner,
                   const ByteArray& request);
+
+    /**
+     * @brief Send MCTP request to devID and receive status of send operation
+     *
+     * @param devID Destination MCTP Device ID
+     * @param msgTag MCTP message tag value
+     * @param tagOwner MCTP tag owner bit. Identifies whether the message tag
+     * was originated by the endpoint that is the source of the message
+     * @param request MCTP request byte array
+     * @return std::pair<boost::system::error_code, int> Pair of boost
+     * error_code and dbus send method call return value
+     */
+    std::pair<boost::system::error_code, int>
+        sendBlocked(const DeviceID devID, const uint8_t msgTag,
+                    const bool tagOwner, const ByteArray& request);
+
     inline void setUseSocket(bool flag)
     {
         useSocket = flag;

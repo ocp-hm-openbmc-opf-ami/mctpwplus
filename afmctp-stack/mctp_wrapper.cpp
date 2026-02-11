@@ -237,6 +237,13 @@ std::pair<boost::system::error_code, int>
     return pimpl->sendYield(yield, extendedEID, msgTag, tagOwner, request);
 }
 
+std::pair<boost::system::error_code, int>
+    MCTPWrapper::sendBlocked(const DeviceID devID, const uint8_t msgTag,
+                             const bool tagOwner, const ByteArray& request)
+{
+    return pimpl->sendBlocked(devID, msgTag, tagOwner, request);
+}
+
 const MCTPWrapper::EndpointMapExtended& MCTPWrapper::getEndpointMapExtended()
 {
     extEpMap = pimpl->getEndpointMap();

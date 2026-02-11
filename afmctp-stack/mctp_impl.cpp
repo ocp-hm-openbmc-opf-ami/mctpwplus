@@ -658,11 +658,6 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID devID,
                          const uint8_t msgTag, const bool tagOwner,
                          const ByteArray& request)
 {
-    if (tagOwner)
-    {
-        throw std::runtime_error(
-            "Can not be tag owner with predefined tag value");
-    }
     if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
     {
         connection->async_method_call(
@@ -678,7 +673,7 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID devID,
 
     sockaddr_mctp addr =
         createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
-    addr.smctp_tag = msgTag;
+    addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
 
     datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
     auto sock = std::make_shared<datagram::socket>(connection->get_io_context(),
@@ -717,11 +712,6 @@ std::pair<boost::system::error_code, int>
                         const uint8_t msgTag, const bool tagOwner,
                         const ByteArray& request)
 {
-    if (tagOwner)
-    {
-        throw std::runtime_error(
-            "Can not be tag owner with predefined tag value");
-    }
     if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
     {
         boost::system::error_code ec =
@@ -736,7 +726,7 @@ std::pair<boost::system::error_code, int>
 
     sockaddr_mctp addr =
         createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
-    addr.smctp_tag = msgTag;
+    addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
 
     datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
     datagram::socket sock(connection->get_io_context(), datagram{AF_MCTP, 0});
@@ -750,6 +740,70 @@ std::pair<boost::system::error_code, int>
         status = -1;
     }
     return std::make_pair(ec, status);
+}
+
+std::pair<boost::system::error_code, int>
+    MCTPImpl::sendBlocked(const DeviceID devID, const uint8_t msgTag,
+                          const bool tagOwner, const ByteArray& request)
+{
+    if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
+    {
+        try
+        {
+            int status = mctpw::methodCall<int>(
+                *connection, spdmService, "/xyz/openbmc_project/mctp",
+                "xyz.openbmc_project.mctp", "SendMessage", devID.mctpEID(),
+                static_cast<int32_t>(devID.networkId()), msgTag, request[0],
+                ByteArray(request.begin() + 1, request.end()));
+            return std::make_pair(boost::system::errc::make_error_code(
+                                      boost::system::errc::success),
+                                  status);
+        }
+        catch (const sdbusplus::exception::SdBusError& sdbusError)
+        {
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                "SendBlocked: Error in method call ",
+                phosphor::logging::entry("EID=%d", devID.id));
+            return std::make_pair(boost::system::errc::make_error_code(
+                                      boost::system::errc::io_error),
+                                  -1);
+        }
+    }
+
+    struct sockaddr_mctp addr =
+        createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
+    addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
+
+    try
+    {
+        int socketFD = socket(AF_MCTP, SOCK_DGRAM, 0);
+        if (socketFD < 0)
+        {
+            throw std::runtime_error("Failed to create socket");
+        }
+        ScopedFD scopedSocketFD(socketFD);
+
+        ssize_t rc =
+            sendto(socketFD, reinterpret_cast<const void*>(request.data() + 1),
+                   request.size() - 1, 0,
+                   reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
+        if (rc != (request.size() - 1))
+        {
+            throw std::runtime_error("sendto sent incomplete data");
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::string warnMsg = std::string("sendBlocked exception: ") + e.what();
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            warnMsg.c_str());
+        return std::make_pair(
+            boost::system::errc::make_error_code(boost::system::errc::io_error),
+            -1);
+    }
+
+    return std::make_pair(
+        boost::system::errc::make_error_code(boost::system::errc::success), 0);
 }
 
 std::optional<std::string>
