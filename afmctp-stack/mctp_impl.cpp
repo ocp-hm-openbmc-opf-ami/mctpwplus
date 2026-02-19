@@ -307,6 +307,10 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID devID,
                                                 int status) {
         if (ec)
         {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendReceiveAsync: send failed: ") + ec.message() +
+                 " (errno: " + std::to_string(errno) + ")")
+                    .c_str());
             ByteArray resp;
             callback(ec, resp);
             return;
@@ -326,8 +330,26 @@ void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID devID,
             [sock, callback, waitTimer, this](boost::system::error_code ec) {
                 if (ec)
                 {
-                    ByteArray resp;
-                    callback(ec, resp);
+                    if (ec == boost::asio::error::operation_aborted)
+                    {
+                        // Socket was cancelled due to timeout
+                        phosphor::logging::log<phosphor::logging::level::ERR>(
+                            "sendReceiveAsync: Operation timed out");
+                        ByteArray resp;
+                        callback(boost::system::errc::make_error_code(
+                                     boost::system::errc::timed_out),
+                                 resp);
+                    }
+                    else
+                    {
+                        phosphor::logging::log<phosphor::logging::level::ERR>(
+                            (std::string("sendReceiveAsync: receive failed: ") +
+                             ec.message() +
+                             " (errno: " + std::to_string(errno) + ")")
+                                .c_str());
+                        ByteArray resp;
+                        callback(ec, resp);
+                    }
                     return;
                 }
                 int sd = sock->native_handle();
@@ -397,8 +419,9 @@ std::pair<boost::system::error_code, ByteArray>
         sendEndPoint, yield[heapData->receiveResult.first]);
     if (sendCount != (request.size() - 1))
     {
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
-            ("Send failed " + std::to_string(sendCount)).c_str());
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            ("sendReceiveYield: send failed " + std::to_string(sendCount))
+                .c_str());
         return heapData->receiveResult;
     }
 
@@ -411,9 +434,11 @@ std::pair<boost::system::error_code, ByteArray>
     auto task = [this, heapData](const boost::system::error_code& ec) {
         if (ec)
         {
-            phosphor::logging::log<phosphor::logging::level::DEBUG>(
-                (std::string("Error while socket wait ") + ec.message())
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendReceiveYield: Error while socket wait: ") +
+                 ec.message() + " (errno: " + std::to_string(errno) + ")")
                     .c_str());
+            heapData->receiveResult.first = ec;
             heapData->waitTimer->cancel();
             return;
         }
@@ -422,6 +447,15 @@ std::pair<boost::system::error_code, ByteArray>
                                MSG_PEEK | MSG_TRUNC, NULL, 0);
         if (readLen < 0)
         {
+            boost::system::error_code receiveEc =
+                boost::system::errc::make_error_code(
+                    static_cast<boost::system::errc::errc_t>(errno));
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendReceiveYield: recvfrom() failed: ") +
+                 receiveEc.message() + " (errno: " + std::to_string(errno) +
+                 ")")
+                    .c_str());
+            heapData->receiveResult.first = receiveEc;
             heapData->waitTimer->cancel();
             return;
         }
@@ -581,7 +615,16 @@ std::pair<boost::system::error_code, ByteArray>
         int socketFD = socket(AF_MCTP, SOCK_DGRAM, 0);
         if (socketFD < 0)
         {
-            throw std::runtime_error("Failed to create socket");
+            int socketErrno = errno;
+            std::string errorMsg =
+                "sendReceiveBlocked: Failed to create socket: " +
+                std::string(strerror(socketErrno)) +
+                " (errno: " + std::to_string(socketErrno) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(socketErrno));
+            return receiveResult;
         }
         ScopedFD scopedSocketFD(socketFD);
 
@@ -607,24 +650,58 @@ std::pair<boost::system::error_code, ByteArray>
                    reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
         if (rc != (request.size() - 1))
         {
-            throw std::runtime_error("sendto sent incomplete data");
+            int sendErrno = errno;
+            std::string errorMsg =
+                "sendReceiveBlocked: sendto sent incomplete data: " +
+                std::string(strerror(sendErrno)) +
+                " (errno: " + std::to_string(sendErrno) +
+                ", sent: " + std::to_string(rc) +
+                ", expected: " + std::to_string(request.size() - 1) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(sendErrno));
+            return receiveResult;
         }
 
         int selectResult = select(socketFD + 1, &readfds, NULL, NULL, &tv);
         if (selectResult < 0)
         {
-            throw std::runtime_error("select() failed");
+            int selectErrno = errno;
+            std::string errorMsg = "sendReceiveBlocked: select() failed: " +
+                                   std::string(strerror(selectErrno)) +
+                                   " (errno: " + std::to_string(selectErrno) +
+                                   ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(selectErrno));
+            return receiveResult;
         }
         else if (selectResult == 0)
         {
-            throw std::runtime_error("receive timed out");
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                "sendReceiveBlocked: receive timed out");
+            receiveResult.first = boost::system::errc::make_error_code(
+                boost::system::errc::timed_out);
+            return receiveResult;
         }
 
         int readLen =
             recvfrom(socketFD, NULL, 0, MSG_PEEK | MSG_TRUNC, NULL, 0);
         if (readLen <= 0)
         {
-            throw std::runtime_error("Failed to determine read length");
+            int recvErrno = errno;
+            std::string errorMsg =
+                "sendReceiveBlocked: Failed to determine read length: " +
+                std::string(strerror(recvErrno)) +
+                " (errno: " + std::to_string(recvErrno) +
+                ", readLen: " + std::to_string(readLen) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(recvErrno));
+            return receiveResult;
         }
 
         std::vector<uint8_t> recvData(readLen);
@@ -633,8 +710,17 @@ std::pair<boost::system::error_code, ByteArray>
                       reinterpret_cast<struct sockaddr*>(&addr), &addrlen);
         if (rc < 0)
         {
-            throw std::runtime_error(std::format(
-                "recvfrom failed. readlen = {} rc = {}", readLen, rc));
+            int recvErrno = errno;
+            std::string errorMsg = "sendReceiveBlocked:recvfrom failed: " +
+                                   std::string(strerror(recvErrno)) +
+                                   " (errno: " + std::to_string(recvErrno) +
+                                   ", readLen: " + std::to_string(readLen) +
+                                   ", rc: " + std::to_string(rc) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(recvErrno));
+            return receiveResult;
         }
 
         receiveResult.first =
@@ -648,8 +734,10 @@ std::pair<boost::system::error_code, ByteArray>
     {
         std::string warnMsg =
             std::string("sendReceiveBlocked exception: ") + e.what();
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
-            warnMsg.c_str());
+        phosphor::logging::log<phosphor::logging::level::ERR>(warnMsg.c_str());
+        // For unexpected exceptions, use io_error as fallback
+        receiveResult.first =
+            boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult;
     }
 }
@@ -685,14 +773,16 @@ void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID devID,
         int status = -1;
         if (ec)
         {
-            phosphor::logging::log<phosphor::logging::level::INFO>(
-                (std::string("Send failed: ") + ec.message()).c_str());
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendAsync: Send failed: ") + ec.message())
+                    .c_str());
         }
         if (bytesSent != (reqCopy->size() - 1))
         {
-            phosphor::logging::log<phosphor::logging::level::INFO>(
-                (std::string("Send incomplete: ") + std::to_string(bytesSent) +
-                 " expected " + std::to_string(reqCopy->size()))
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendAsync: Send incomplete: ") +
+                 std::to_string(bytesSent) + " expected " +
+                 std::to_string(reqCopy->size()))
                     .c_str());
         }
         if (!ec && (bytesSent == (reqCopy->size() - 1)))
@@ -724,22 +814,48 @@ std::pair<boost::system::error_code, int>
         return std::make_pair(ec, status);
     }
 
-    sockaddr_mctp addr =
-        createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
-    addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
-
-    datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
-    datagram::socket sock(connection->get_io_context(), datagram{AF_MCTP, 0});
-    boost::system::error_code ec;
-    sock.async_send_to(
-        boost::asio::const_buffer(request.data() + 1, request.size() - 1),
-        sendEndPoint, yield[ec]);
-    int status = 0;
-    if (ec)
+    try
     {
-        status = -1;
+        sockaddr_mctp addr =
+            createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
+        addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
+        datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
+        datagram::socket sock(connection->get_io_context(),
+                              datagram{AF_MCTP, 0});
+        boost::system::error_code ec;
+        auto bytesSent = sock.async_send_to(
+            boost::asio::const_buffer(request.data() + 1, request.size() - 1),
+            sendEndPoint, yield[ec]);
+        int status = 0;
+        if (ec)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendYield: Send failed: ") + ec.message())
+                    .c_str());
+            status = -1;
+        }
+        else if (bytesSent != (request.size() - 1))
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendYield: Send incomplete: sent ") +
+                 std::to_string(bytesSent) + ", expected " +
+                 std::to_string(request.size() - 1) +
+                 " (errno: " + std::to_string(errno) + ")")
+                    .c_str());
+            status = -1;
+            ec = boost::system::errc::make_error_code(
+                boost::system::errc::io_error);
+        }
+        return std::make_pair(ec, status);
     }
-    return std::make_pair(ec, status);
+    catch (const std::exception& e)
+    {
+        std::string warnMsg = std::string("sendYield exception: ") + e.what();
+        phosphor::logging::log<phosphor::logging::level::ERR>(warnMsg.c_str());
+        return std::make_pair(
+            boost::system::errc::make_error_code(boost::system::errc::io_error),
+            -1);
+    }
 }
 
 std::pair<boost::system::error_code, int>
@@ -779,7 +895,17 @@ std::pair<boost::system::error_code, int>
         int socketFD = socket(AF_MCTP, SOCK_DGRAM, 0);
         if (socketFD < 0)
         {
-            throw std::runtime_error("Failed to create socket");
+            int socketErrno = errno;
+            std::string errorMsg = "sendBlocked: Failed to create socket: " +
+                                   std::string(strerror(socketErrno)) +
+                                   " (errno: " + std::to_string(socketErrno) +
+                                   ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            return std::make_pair(
+                boost::system::errc::make_error_code(
+                    static_cast<boost::system::errc::errc_t>(socketErrno)),
+                -1);
         }
         ScopedFD scopedSocketFD(socketFD);
 
@@ -789,14 +915,25 @@ std::pair<boost::system::error_code, int>
                    reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
         if (rc != (request.size() - 1))
         {
-            throw std::runtime_error("sendto sent incomplete data");
+            int sendErrno = errno;
+            std::string errorMsg =
+                "sendBlocked: sendto sent incomplete data: " +
+                std::string(strerror(sendErrno)) +
+                " (errno: " + std::to_string(sendErrno) +
+                ", sent: " + std::to_string(rc) +
+                ", expected: " + std::to_string(request.size() - 1) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            return std::make_pair(
+                boost::system::errc::make_error_code(
+                    static_cast<boost::system::errc::errc_t>(sendErrno)),
+                -1);
         }
     }
     catch (const std::exception& e)
     {
         std::string warnMsg = std::string("sendBlocked exception: ") + e.what();
-        phosphor::logging::log<phosphor::logging::level::DEBUG>(
-            warnMsg.c_str());
+        phosphor::logging::log<phosphor::logging::level::ERR>(warnMsg.c_str());
         return std::make_pair(
             boost::system::errc::make_error_code(boost::system::errc::io_error),
             -1);
