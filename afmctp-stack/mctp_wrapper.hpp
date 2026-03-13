@@ -29,9 +29,12 @@
 
 template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
+using VendorDefinedMessageType =
+    std::tuple<uint8_t, std::variant<uint16_t, uint32_t>, uint16_t>;
 using MctpPropertiesVariantType =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
-                 uint8_t, std::vector<uint8_t>, std::vector<uint16_t>>;
+                 uint8_t, std::vector<uint8_t>, std::vector<uint16_t>,
+                 std::vector<VendorDefinedMessageType>>;
 
 namespace mctpw
 {

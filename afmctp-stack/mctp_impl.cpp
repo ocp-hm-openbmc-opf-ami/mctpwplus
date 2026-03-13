@@ -526,13 +526,12 @@ boost::system::error_code MCTPImpl::registerResponder(
     if (isVDM)
     {
         uint8_t vidFormat = config.type == MessageType::vdpci ? 0x00 : 0x01;
-        std::variant<uint16_t> vendorId = config.vendorId.value_or(0x8086);
+        std::variant<uint16_t> vendorId =
+            static_cast<uint16_t>(config.vendorId.value_or(0x8086));
         uint16_t cmdSet = config.vendorMessageType.value().cmdSetType();
         phosphor::logging::log<phosphor::logging::level::INFO>(
             (std::string("Registering VDM responder with vid format ") +
-             std::to_string(vidFormat) + " vendorId " +
-             std::to_string(std::get<uint16_t>(vendorId)) + " cmdSet " +
-             std::to_string(cmdSet))
+             std::to_string(vidFormat) + " cmdSet " + std::to_string(cmdSet))
                 .c_str());
         msg.append(vidFormat, vendorId, cmdSet);
     }
@@ -1181,7 +1180,7 @@ void MCTPImpl::handleEndpointAddition(
     }
     auto allProperties = endpointsInterfaceItr->second;
     auto supportedMessageTypeItr = allProperties.find("SupportedMessageTypes");
-    auto vdmTypesItr = allProperties.find("VDMTypes");
+    auto vdmTypesItr = allProperties.find("VendorDefinedMessageTypes");
     if (supportedMessageTypeItr == allProperties.end() ||
         vdmTypesItr == allProperties.end())
     {
@@ -1189,7 +1188,14 @@ void MCTPImpl::handleEndpointAddition(
     }
     auto supportedMessageTypes =
         std::get<std::vector<uint8_t>>(supportedMessageTypeItr->second);
-    auto vdmTypes = std::get<std::vector<uint16_t>>(vdmTypesItr->second);
+    auto vdmSupportEntries =
+        std::get<std::vector<VendorDefinedMessageType>>(vdmTypesItr->second);
+    std::vector<uint16_t> vdmTypes;
+    vdmTypes.reserve(vdmSupportEntries.size());
+    for (const auto& entry : vdmSupportEntries)
+    {
+        vdmTypes.push_back(std::get<2>(entry));
+    }
     EndpointInfo epInfo(devID, uuid, supportedMessageTypes, vdmTypes,
                         isOwnEid(devID));
     if (allEndpoints.contains(devID))
