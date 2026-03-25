@@ -1204,8 +1204,10 @@ void MCTPImpl::handleEndpointAddition(
         {
             return;
         }
+        // Remove endpoint if ep_info has changed
+        allEndpoints.erase(devID);
     }
-    allEndpoints.insert(std::make_pair(devID, epInfo));
+    allEndpoints.emplace(devID, epInfo);
     if (allEndpoints.at(devID).selfEndpoint)
     {
         if (!this->eidChangeCallback)
@@ -1230,7 +1232,7 @@ void MCTPImpl::handleEndpointAddition(
                 "ReconfigurationCallback callback is empty");
             return;
         }
-        if (eligibleForReconfigurationCallback(epInfo))
+        if (eligibleForReconfigurationCallback(allEndpoints.at(devID)))
         {
             boost::asio::spawn(
                 connection->get_io_context(),
@@ -1240,7 +1242,7 @@ void MCTPImpl::handleEndpointAddition(
                     event.type = mctpw::Event::EventType::deviceAdded;
                     this->networkChangeCallback(this, event, yield);
                 },
-                {});
+                boost::asio::detached);
         }
     }
 }
@@ -1274,7 +1276,7 @@ void MCTPImpl::handleEndpointRemoval(const std::string objectPath,
                 }
                 this->networkChangeCallback(this, event, yield);
             },
-            {});
+            boost::asio::detached);
     }
     allEndpoints.erase(devID);
 }
