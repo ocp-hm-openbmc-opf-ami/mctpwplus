@@ -1,0 +1,2001 @@
+commit 7ef21bc83dca39b83245d1b9a5467cb4bb49751c
+Author: Joel James <joelx.james@intel.com>
+Date:   Wed Jul 8 08:59:28 2026 +0530
+
+    Validate VendorHeader payload size before cast (#148)
+    
+    The code casts payload.data() to VendorHeader* and dereferences it
+    without verifying that payload is large enough to hold the struct.
+    
+    Add a size check before the cast and return early if payload is too
+    small
+    
+    ---------
+    
+    Signed-off-by: Joel James <joelx.james@intel.com>
+    Co-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>
+    Co-authored-by: Mayank Metha D <mayank.metha@intel.com>
+
+commit f909ba12f84aba3588ba9e62440ed8c8b9a1b0ec
+Author: Joel James <joelx.james@intel.com>
+Date:   Mon Jul 6 13:54:09 2026 +0530
+
+    Check recvfrom return value before allocating (#149)
+    
+    recvfrom can return -1 on error but readLen is used unconditionally to
+    size the receive buffer. This could cause a heap out-of-bounds write.
+    
+    add a check to handle case when recvfrom returns a error
+    
+    ---------
+    
+    Signed-off-by: Joel James <joelx.james@intel.com>
+    Signed-off-by: Auto Formatter <no-reply@intel.com>
+    Co-authored-by: Mayank Metha D <mayank.metha@intel.com>
+    Co-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>
+    Co-authored-by: Auto Formatter <no-reply@intel.com>
+
+commit c78bac22ad8f480bcf7fc2dd5b12546a20283c22
+Author: Joel James <joelx.james@intel.com>
+Date:   Fri Jul 3 13:57:24 2026 +0530
+
+    Check dup() return value (#150)
+    
+    dup() can return -1 when the process hits its file descriptor limit. The
+    return value is passed directly to stream_descriptor without checking.
+    
+    add a check for dupFd < 0 and return error.
+    
+    Signed-off-by: Joel James <joelx.james@intel.com>
+
+commit 8ccebe3d8544354c4ab13b1eb1b887d6fb6bdb63
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Jun 30 16:17:26 2026 +0530
+
+    subprojects: pin dependencies to specific revisions (#154)
+    
+    Pin gtest to v1.17.0, sdbusplus and phosphor-logging to known-good
+    commits instead of HEAD to ensure reproducible builds.
+    
+    Also add missing cmake module import in test/meson.build required for
+    the gtest subproject fallback path.
+    
+    ---------
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+    Co-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>
+
+commit cd9c26eebaff24c9899a27fc24445fbc03fa58a7
+Author: Ruta Abhyankar <ruta.abhyankar@intel.com>
+Date:   Tue Jun 30 11:54:08 2026 +0530
+
+    Cleanup SPDM touchpoints from mctpwplus (#153)
+    
+    Remove SPDM touchpoints from mctpwplus,
+    to avoid DBus errors in journal logs.
+    
+    Tested:
+    No SPDM DBus errors seen in journal log
+    
+    Signed-off-by: Ruta Abhyankar <ruta.abhyankar@intel.com>
+
+commit b6b89338d6cabe7564cc215bde596f2bf90d5a18
+Author: smahankx <satish.kumarx.mahankali@intel.com>
+Date:   Thu Jun 25 11:38:04 2026 +0530
+
+    Coverity: Fix misc. issues (#147)
+    
+    This commit fixes the following
+    
+    3275824
+    3567859
+    Rule of three
+    
+    3567849
+    Uncaught exception
+    
+    3567854
+    Big parameter passed by value
+    
+    ---------
+    
+    Co-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>
+
+commit eb363a149a45607afe66c7c9cc0a3528f1bcbf98
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri May 8 10:18:13 2026 +0530
+
+    afmctp-stack: Reduce log verbosity from INFO to DEBUG (#143)
+    
+    Change two log statements in onNewInterface and onSPDMSessionEvent from
+    INFO to DEBUG to reduce log noise in production.
+
+commit 7b5958c99cbf72273485b481e38b91cf2d457119
+Author: Ruta Abhyankar <ruta.abhyankar@intel.com>
+Date:   Wed Mar 25 18:27:56 2026 +0530
+
+    Use boost::asio::detached for spawn (#142)
+    
+    The latest boost still has build errors calling
+    spawn with various attributes, so copy upstream
+    and use boost::asio::detached as the attribute
+    parameter.
+    
+    Tested:
+    Domain-mapperd and PFR EIDs detected when device
+    is updated after boot.
+    
+    ---------
+    
+    Signed-off-by: Ruta Abhyankar <ruta.abhyankar@intel.com>
+    Signed-off-by: Auto Formatter <no-reply@intel.com>
+    Co-authored-by: Auto Formatter <no-reply@intel.com>
+
+commit 1c82c8997a9cc68b975dbcffb6fa6d46d0326df7
+Author: Ruta Abhyankar <ruta.abhyankar@intel.com>
+Date:   Fri Mar 13 11:46:43 2026 +0530
+
+    Update VDMTypeSupport property to use ccmctp implementation (#141)
+    
+    Updating VDMTypeSupport property to use upstream ccmctp
+    implementation.
+    
+    Tested:
+    Tested on PO board, mctp interface shows correct
+    VendorDefinedMessageTypes property
+    
+    <img width="1518" height="576" alt="image"
+    src="https://github.com/user-attachments/assets/75efbcc8-2d26-4d4b-ad1a-bb3a55fa7590"
+    />
+    
+    ---------
+    
+    Signed-off-by: rutaabhyankar <ruta.abhyankar@intel.com>
+
+commit f15fe0d4e2ce4a32a0f6b60512b4ab161a269228
+Author: rutaabhyankar <ruta.abhyankar@intel.com>
+Date:   Thu Feb 19 10:42:00 2026 +0530
+
+    Improve error logging for sendReceive APIs (#140)
+    
+    Updated the error_codes and logging for timeouts in sendReceive APIs
+    to be consistent and added additional logging for other socket errors.
+    
+    Tested
+    error codes from InKernel-MCTP are consistent.
+    
+    ---------
+    
+    Signed-off-by: rutaabhyankar <ruta.abhyankar@intel.com>
+
+commit 2d49845aca76e00aa7a1e77727a5391cba7194ab
+Author: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+Date:   Wed Feb 18 11:14:36 2026 +0100
+
+    Add Copilot review instructions (#137)
+    
+    Establishes automated review guidelines for Copilot to enforce OpenBMC
+    C++ coding standards, code coverage requirements, and consistent
+    feedback patterns.
+    
+    ---------
+    
+    Signed-off-by: Auto Formatter <no-reply@intel.com>
+    Signed-off-by: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+    Co-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>
+    Co-authored-by: Auto Formatter <no-reply@intel.com>
+
+commit 7c8e4e36fe8f463e033a341e58bff40dd0fb7d5f
+Author: Bolesław Ogończyk Mąkowski <boleslawx.ogonczyk-makowski@intel.com>
+Date:   Wed Feb 11 12:02:01 2026 +0100
+
+    Add sendBlocked (#125)
+    
+    sendReceive has blocked/yield/callback versions,
+    blocked version was missing from send
+    
+    also removed throwing exception when owner flag was set in
+    sendYield/sendAsync
+    added assigning correct tag depending on if owner flag is set or not
+    
+    Tested:
+    UTs pass
+    On platform - command sent using sendBlocked/sendAsync/sendYield got
+    executed correctly
+    
+    ---------
+    
+    Signed-off-by: Boleslaw Ogonczyk Makowski <boleslawx.ogonczyk-makowski@intel.com>
+
+commit cf31240ef45e0ad8b557b2d85e5cbabfc955f187
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Mon Jan 19 11:26:27 2026 +0530
+
+    Fix: sendReceiveBlocked (#138)
+    
+    Close the socket opened in send receive blocked function to avoid
+    resource leak
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 8581b4c725c0a8598d53fe5987ffbc06afd3eea9
+Author: rutaabhyankar <ruta.abhyankar@intel.com>
+Date:   Fri Jan 9 11:20:02 2026 +0530
+
+    Fix AFMCTP SPDM DBus calls (#133)
+    
+    Fixed the DBus method call SPDM object query to call
+    SPDM secure telemetry APIs
+    
+    Tested:
+    Tested on PO board, Type06 messages are enabled.
+    
+    ---------
+    
+    Signed-off-by: rutaabhyankar <ruta.abhyankar@intel.com>
+    Signed-off-by: Auto Formatter <no-reply@intel.com>
+    Co-authored-by: Auto Formatter <no-reply@intel.com>
+
+commit e310c57ee1441899be0c28af9b8db384d8b82319
+Author: rutaabhyankar <ruta.abhyankar@intel.com>
+Date:   Thu Dec 11 11:12:58 2025 +0530
+
+    Fix signaling mechanism to listen SPDM session state (#132)
+    
+    Added signal check for handling properties_changed signal from SPDM
+    - When SPDM session is established and 'SPDMSessionEstablished' property
+    is set for EID,
+    mctpwplus wil route the traffic via SPDM repo to enable
+    encryption/decryption for packets
+    
+    
+    Tested:
+    Tested on simics setup, signaling logic works fine.
+    
+    ---------
+    
+    Signed-off-by: rutaabhyankar <ruta.abhyankar@intel.com>
+    Signed-off-by: Auto Formatter <no-reply@intel.com>
+    Co-authored-by: Auto Formatter <no-reply@intel.com>
+
+commit 75dd401ffbe3b84fe3702f1d367a5d3e6c44a297
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Dec 10 11:45:07 2025 +0530
+
+    af-mctp: handle ServiceUnknown (#131)
+    
+    Handle ServiceUnknown dbus error when mctpd is not up
+    Check VDM message type also in callback
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 62e90bfd9dcbc7d59f8e16b4099517d5354c5638
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Dec 3 17:31:59 2025 +0530
+
+    Fix send receive and formatting (#129)
+    
+    Use direct fd and file wait operations instead of boost asio socket wait
+    in send receive
+    Fix payload in receive callback
+    Refactor some repeating code
+    Fix network id finding logic
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 21aecd07eb8f64e3e6aece8215292cd2b8a59554
+Author: Vikash Chandola <vikash.chandola@intel.com>
+Date:   Thu Nov 13 14:14:08 2025 +0530
+
+    Add support for AF MCTP stack (#116)
+    
+    Enables mctpwplus to use in kernel socket based AF MCTP stack.
+    
+    ---------
+    Signed-off-by: Vikash Chandola <vikash.chandola@intel.com>
+
+commit a9561bc51b35ea6e70433d6652431d16c62db584
+Author: Piotr Sulewski <piotrx.sulewski@intel.com>
+Date:   Thu Oct 30 13:29:16 2025 +0100
+
+    Add boost flags disabling RTTI and TypeId  (#113)
+    
+    Added Boost flags `BOOST_NO_RTTI` and `BOOST_NO_TYPEID` because the
+    inconsistency in RTTI settings between libpmt and mctpwplus was causing
+    segmentation fault in PMT service, when the communication method was
+    changed to Unix Sockets
+    
+    Tested on simics
+    
+    ---------
+    Signed-off-by: Piotr Sulewski <piotrx.sulewski@intel.com>
+
+commit 8f8a98683d36823b5774f101c8f678e459f8cc9e
+Author: Vikash Chandola <vikash.chandola@intel.com>
+Date:   Wed Oct 22 14:47:06 2025 +0530
+
+    Update mctpwrapper API to remove service name (#120)
+    
+    Service name is not relevant parameter for mctpwplus consumers. All
+    mctpwrapper consumer use this information to guess MCTP network. Remove
+    service name and provide DeviceID as parameter. DeviceID implicitly
+    contains information about network. This removes dependency of
+    applications relying on service name for network information.
+    
+    --
+     Signed-off-by: Vikash Chandola <vikash.chandola@intel.com
+
+commit 92b684ac42f3e578a071894db326eef672f7302e
+Author: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+Date:   Thu Oct 16 08:25:42 2025 +0200
+
+    Resolve issues with spawn on latest Boost (v1.88) (#124)
+    
+    Since Boost 1.88 the default completion token, provided in
+    boost::asio::spawn's third argument, has changed to
+    boost::asio::deferred, which results with coroutines not spawning at
+    all. The common way to fix that is to replace default argument with
+    boost::asio::detached, but this has a negative effect of not being able
+    to catch any exception thrown inside a thread. This change addresses the
+    issue by introducing a wrapper for boost::asio::spawn with custom
+    completion token, which rethrows any exception that may be thrown inside
+    a coroutine.
+    
+    Tested: Unit Test Validation with Boost v.1.88
+    
+    ---------
+    
+    Signed-off-by: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+
+commit 0b50e525ba1c5fb998c54ef4332b473ad5bfede9
+Author: Sneha Deb <sneha.deb@intel.com>
+Date:   Fri May 16 13:33:10 2025 +0530
+
+    Add dependency to README for integration document (#108)
+    
+    Adding dependencies to README.md as a part of integration document.
+    
+    ---------
+    
+    Signed-off-by: Sneha Deb <sneha.deb@intel.com>
+
+commit b95d4aae4e1d32323a0afce1146238186b0f3e43
+Author: Terry Duncan <terry.s.duncan@intel.com>
+Date:   Thu May 1 08:26:50 2025 -0700
+
+    Revert license collab (#110)
+    
+    Per agreement with 1source team who pushed this by mistake to existing
+    collab repos.
+
+commit 28a170f19c6d51361f6029f7736ef53122b74c05
+Author: sys-1sgithubsupport <sys_1sgithubsupport@intel.com>
+Date:   Fri Apr 25 05:03:31 2025 +0530
+
+    According LICENSE-collab.md to intel-collab policy
+
+commit 8c88f7756e6ad3e8ac16873ddff41ebdb1ec0e4c
+Author: sys-1sgithubsupport <sys_1sgithubsupport@intel.com>
+Date:   Fri Apr 25 05:03:30 2025 +0530
+
+    According README-collab.md to intel-collab policy
+
+commit 4802b4c1f4ff38284c3e4f7e823d81574c84aad6
+Author: rutaabhyankar <ruta.abhyankar@intel.com>
+Date:   Wed Apr 9 09:56:14 2025 +0530
+
+    Updated initiateHandshake API with conn status (#106)
+    
+    InitiateHandshake API is called when session was established in spdm.
+    Updated the API to take a boolean connection status argument which can
+    be set based on session establishment status. True if session is
+    established and false if session is ended.
+    
+    Tested:
+    Tested on simics, working fine.
+    
+    Signed-off-by: rutaabhyankar <ruta.abhyankar@intel.com>
+
+commit 375966deeb019a1876f2ee902d39be775d81b720
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Mar 28 22:03:49 2025 +0530
+
+    Add service name to eid map on RX (#105)
+    
+    When an mctp message is received from an unknown eid add the service
+    name in end point map to enable response
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit de703035e77863a8a01bfdfbc9ac5b90572fb3e5
+Author: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+Date:   Wed Mar 5 15:29:13 2025 +0100
+
+    Fix formatting errors (meson linter) (#104)
+    
+    Changes needed to update the `openbmc-build-script` (upstream CI) to
+    rev.
+    [f0e5de9](https://github.com/openbmc/openbmc-build-scripts/commit/f0e5de91569e8449a47eb5f34fa882af0165a0dd)
+    
+    Signed-off-by: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+
+commit 710f2a75803ac65d6485058527be9c097ff958b6
+Author: Jason M. Bills <jasonm.bills@yahoo.com>
+Date:   Tue Mar 4 07:22:00 2025 -0700
+
+    Fix build issues with boost 1.87 (#103)
+    
+    Update deprecated terminology that was removed in boost 1.87.
+    
+    Signed-off-by: Jason M. Bills <jason.m.bills@intel.com>
+
+commit 71d4754e29035ee1b36d6f7d4589c9e6286bc1c1
+Author: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+Date:   Thu Feb 27 11:29:23 2025 +0100
+
+    Update readme files (#102)
+    
+    and update formatting to pass CI
+    
+    ---------
+    
+    Signed-off-by: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+
+commit 2e59fccb667c3b6b18e26b9fc25d1accd8109eca
+Author: Florian Breska <florian.breska@intel.com>
+Date:   Wed Feb 5 11:37:24 2025 +0100
+
+    fix local building (#101)
+    
+    Fixes local building related to boost:
+    1. replaces invalid download link with working one
+    2. adds as_system to local boost dependency as it otherwise can produce
+    warnings that can be treated as errors with -werror (and proper warning
+    defines)
+    
+    Tested:
+    Builds locally standalone and as subproject in other apps
+    
+    Signed-off-by: Florian Breska <florian.breska@intel.com>
+
+commit 672770b5dc92fbaf6e0c1b12f48171e4ec289fb4
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Dec 20 13:42:22 2024 +0530
+
+    Check VDM message types on new eid (#100)
+    
+    For VDPCI EIDs do check for matching message type also
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit daf8f998aabe1da21c67f4417786ca0cabd261ac
+Author: Jason M. Bills <jasonm.bills@yahoo.com>
+Date:   Fri Dec 13 14:44:33 2024 -0700
+
+    Fix ambiguous overload error on asio::spawn() (#99)
+    
+    In the latest upstream CI script, these calls to spawn() result in an
+    ambiguous overload error as they could match multiple spawn() overloads.
+    This adds an empty attributes parameter to make the compiler select the
+    correct overload.
+    
+    Signed-off-by: Jason M. Bills <jason.m.bills@intel.com>
+
+commit 97fcf9beff63e57af7f2dc0bbe30799a24b12554
+Author: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+Date:   Wed Nov 27 07:56:30 2024 +0100
+
+    Fix conversion error - add static cast (#98)
+    
+    When compiling with -Werror using clang 18, there is an error: implicit
+    conversion changes signedness: 'int' to 'uint32_t' (aka 'unsigned int')
+    [-Werror,-Wsign-conversion]
+
+commit 356aafa95820c306032c968418eb60d568291bfb
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Aug 28 19:19:08 2024 +0530
+
+    Sync version of detectMctpEndpoints (#97)
+    
+    Add another version of detectMctpEndpoints which doesnt require
+    yield_context
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 983f5303f8574b87106561f8bc376151bcaaa965
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Aug 9 16:36:35 2024 +0530
+
+    Process signals before detect endpoints (#96)
+    
+    DBus signals received between registering for signals and completing
+    detectMctpEndpoints is ignored now. This causes missing of service
+    start events in some corner cases. Fix the same.
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 1e01d0acfe3aac0c3e89efdc56afc29cc934f0d0
+Author: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+Date:   Fri Jul 26 16:06:39 2024 +0200
+
+    Add coverage_readme and requirements (#92)
+    
+    In this PR:
+    
+    - [x] Add README
+    - [x] Add requirements for upstream script
+    - [x] Temporarily disable test TriggerDeviceDiscovery.PcieVdm (valgrind
+    failure)
+    
+    Tested:
+    
+    - [x] Upstream script runs correctly, coverage report is present.
+    - [x] Invoking script on Jenkins
+    [PTS-50565](https://jira.devtools.intel.com/browse/PTS-50503)
+    
+    ---------
+    
+    Signed-off-by: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+
+commit c4fe3aee069e3be9062d32d867ff6614c30ee2c2
+Author: Ankita Gawade <ankita.gawade@intel.com>
+Date:   Thu Jul 11 14:11:50 2024 +0530
+
+    Add SPDM handshake initiation and DeviceID method (#62)
+    
+    Implemented a new function, initiateSPDMHandshake, to start the
+    handshake process
+    between the client and the SPDM socket server, establishing a secure
+    connection.
+    This function is called once the server is ready, allowing the client to
+    proceed with socket initialization.
+    
+    Signed-off-by: Ankita Vilas Gawade <ankita.gawade@intel.com>
+
+commit 36e2fa2dbcb2ed30e7e5b14baed607e19a1a367f
+Author: Arun Lal K M <arun.lal@intel.com>
+Date:   Thu Jul 11 09:04:33 2024 +0530
+
+    Add gtest for SocketInterface (#91)
+    
+    Code changes are for
+    
+    - Adding gtest for SocketInterface
+    - Adding gcovr.cfg file to remove unwanted folders in coverage report
+    
+    Signed-off-by: Arun Lal K M <arun.lal@intel.com>
+
+commit 809f4571357c8616a7ab6121068c771df398a7a8
+Author: Srinivasa Rao M <srinivasa.rao.m@intel.com>
+Date:   Mon Jul 1 22:17:15 2024 +0530
+
+    Fixed Clang code formatting errors (#90)
+    
+    Fixed Clang code formatting errors
+    
+    
+    Tested:
+    Unit tests passed as below:
+    ```
+     1/10 test create objects                   OK              0.02s
+     2/10 test detect endpoints                 OK              0.34s
+     3/10 test send recieve                     OK              0.34s
+     4/10 test send payload                     OK              0.34s
+     5/10 test register responder               OK              0.34s
+     6/10 test trigger device discovery         OK              0.34s
+     7/10 test reserve release bw               OK              0.35s
+     8/10 test get device location              OK              0.34s
+     9/10 test get own eid                      OK              1.34s
+    10/10 test on event                         OK              2.94s
+    
+    ```
+    Coverage generated using upstream docker scripts
+    ```
+    Overall coverage rate:
+      lines......: 79.7% (1399 of 1756 lines)
+      functions..: 82.1% (165 of 201 functions)
+      branches...: 34.9% (1025 of 2940 branches)
+    ```
+    
+    Signed-off-by: Srinivasa Rao M <srinivasa.rao.m@intel.com>
+
+commit bff46ab8c23c31b8a2dcf96a3ef403d254fb776e
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Mon Jul 1 13:26:56 2024 +0530
+
+    Added new file to cover gtest API for on_event (#86)
+    
+    Gtest for the mctp_impl private API's
+    onMCTPEvent
+    onNewService
+    triggerGetOwnEID
+    getReadableName
+    onPropertiesChanged
+    onOwnEIDChange
+    onInterfaceRemoved
+    readOwnEID
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+    Co-authored-by: Srinivasa Rao M <srinivasa.rao.m@intel.com>
+
+commit 149f44475f89a3a3522c050c2cb279ddfc7aa51e
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Fri Jun 28 11:13:20 2024 +0530
+
+    Removed unused getBusId API (#88)
+    
+    Removed unused getBusId API from mctp_impl
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+
+commit c86513fb8b6148ab47b9a9ec6752db42053904b6
+Author: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+Date:   Thu Jun 27 10:44:49 2024 +0200
+
+    Do not build tests if mctpwplus is a subproject (#85)
+    
+    Tested: meson build and UT
+    
+    Signed-off-by: Ewelina Walkusz <ewelinax.walkusz@intel.com>
+
+commit 5bf29a616d637b81f1ed2d8e01afb937a62de23e
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Wed Jun 26 13:45:19 2024 +0530
+
+    Added new file to do gtest for the GetOwnEIDs   API. (#84)
+    
+    Added new file to do gtest for the API.
+    
+    GetOwnEIDs
+    
+    Tested:
+    Tested using unit test code.
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+
+commit c00ba2e67e1da251069c57fda9b8649bcdae8ff6
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Wed Jun 19 14:12:59 2024 +0530
+
+    Gtest: getDeviceLocation API (#82)
+    
+    Added new file to do gtest for the getDeviceLocation API.
+    
+    Tested:
+    Tested using unit test code.
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+
+commit 8f724a0d66bdd1b7b0bdeae8c4a6e3a0a070aa5c
+Author: Paweł Kallas <pawel.kallas@gmail.com>
+Date:   Mon Jun 17 18:58:36 2024 +0200
+
+    fix NetworkId conversion error (#81)
+    
+    When compiling with Weverything using gcc13, there is error "error:
+    conversion from ‘unsigned int’ to ‘mctpw::NetworkID’ {aka ‘unsigned
+    char’} may change value [-Werror=conversion]". Add static cast to allow
+    compilation.
+    
+    Signed-off-by: Kallas, Pawel <pawel.kallas@intel.com>
+
+commit 64b6e6b55f68621fc0612a4e9a9af8e6b1eafc14
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Fri Jun 14 15:35:13 2024 +0530
+
+    Gtest : reserveBandwidth and releaseBandwidth (#80)
+    
+    Added new file to do gtest for the below API's
+    
+    reserveBandwidth
+    releaseBandwidth
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+
+commit f53811830b66229295f9219241e2f2bee44b9b4d
+Author: Moni kumar <monix.kumar@intel.com>
+Date:   Thu Jun 13 15:36:10 2024 +0530
+
+    Remove bus ID from mctpwplus (#67)
+    
+    remove bus ID as Bus ID was unused in the code.
+    
+    Signed-off-by: moni kumar <monix.kumar@intel.com>
+
+commit ede421e005deb4a92ee6164ce841b2238693245d
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Jun 11 22:49:41 2024 +0530
+
+    Remove busID prints (#79)
+    
+    Remove busID prints from test code.
+    BusID is not used and will be removed
+    from the library in another PR.
+
+commit dbc0497264381fa74c0296da5c9d491baa9fd532
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Tue Jun 11 08:28:35 2024 +0530
+
+    GTest: triggerDeviceDiscovery API (#78)
+    
+    Added new file to do gtest for the API's
+    
+    trigger_device_discovery
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+
+commit 18fd7b5c7843db09ca0d8e6c3dcdaad121d7a2d6
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Fri Jun 7 10:38:14 2024 +0530
+
+    Gtest for the API registerResponder (#77)
+    
+    Added new file to do gtest for the below API's
+    register_responder
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+
+commit 68078be8db08784530a715cfa51218bd9b284b44
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Wed Jun 5 15:43:10 2024 +0530
+
+    Gtest for SendAync SendYield API (#76)
+    
+    Added new file to do gtest for the below API's
+    
+    sendAsync
+    sendYield
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+    Co-authored-by: fernandis, williamx <williamx.fernandis@intel.com>
+
+commit cbdf3bcf2ea9b41abe4c8147204d058d40ea4e02
+Author: Arun Kapale <arunx.kapale@intel.com>
+Date:   Wed Jun 5 14:55:08 2024 +0530
+
+    GTest for sendReceive API's (#72)
+    
+    Added new file to do gtest for the below API's
+    sendReceiveAsync
+    sendReceiveYield
+    sendReceiveBlocked
+    
+    Tested:
+    Tested using unit test code.
+    
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+    Co-authored-by: Nidhin MS <nidhin.ms@intel.com>
+    Co-authored-by: fernandis, williamx <williamx.fernandis@intel.com>
+
+commit f1a03c0d88a46e14a0de19d524615479833c5cbe
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Jun 4 15:42:41 2024 +0530
+
+    GTest: Add detect endpoints (#71)
+    
+    Added detect end point yield function
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+    Signed-off-by: Arun Kapale <arunx.kapale@intel.com>
+
+commit 7a4960845c3fe7af1a81bb8cf63c92e778e9560a
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Jun 4 10:19:21 2024 +0530
+
+    Readable service name (#68)
+    
+    Change dbus name of the service to readable name like CPU1 CPU2
+    if it is a unique name like :1.132
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit dc282eb4534158244dbcee36d4473947c8546af3
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri May 31 12:38:20 2024 +0530
+
+    GTest: Add process classes (#70)
+    
+    Add utility classes to create sub processes for mctpd and object mapper.
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+    Co-authored-by: fernandis, williamx <williamx.fernandis@intel.com>
+
+commit b7507c37a31c4070766326581156da652c40fd39
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu May 30 00:12:02 2024 +0530
+
+    GTest: Add test case for constructors (#69)
+    
+    GTest: Add test case for constructors
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+    Co-authored-by: fernandis, williamx <williamx.fernandis@intel.com>
+
+commit 8d98a35c4df0fac8a589296d0ff33fe2c7969850
+Author: Jonathan Doman <jonathan.doman@intel.com>
+Date:   Wed May 15 21:00:29 2024 -0700
+
+    Handle SdBusError in sendReceiveBlocked (#53)
+    
+    Synchronous D-Bus calls throw an `SdBusError` for any error reply -
+    `is_method_error` is not the proper way to check for errors.
+    
+    Signed-off-by: Jonathan Doman <jonathan.doman@intel.com>
+
+commit 88642abefa1141773793e4ff30c0fe7bef223562
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Mon Apr 29 17:19:40 2024 +0530
+
+    Add networkID support  (#60)
+    
+    NetworkID is added to mctpd.wrapper API use zero as
+    default netowrkID and this will break the flow if
+    upper layer applciation is not specifying the networkID
+    
+    The following change will check the destination EID in
+    extended EID map and fill the respective networkID
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 3504c998a44540f7c75a4ca54f0899556ab32c49
+Author: Moni kumar <monix.kumar@intel.com>
+Date:   Thu Apr 25 15:15:55 2024 +0530
+
+    MCTP message type ANY and binding type ANY (#54)
+    
+    Add support for Message Type and Binding type as any
+    currently Individual message types and binding types
+    are supported.
+    
+    Signed-off-by: moni kumar <monix.kumar@intel.com>
+
+commit 1e68c5269c6822a29cbc2c25d4426319822bb3fd
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Mon Apr 22 17:29:41 2024 +0530
+
+    Fix socket path for connecting to mctpd unix socket (#59)
+    
+    mctpd exposes its own PID is dbus and wrapper will get
+    the info for connecting to the unix socket.
+    
+    The following PR fix the socket path by giving the correct
+    variable name.
+    
+    Tested:
+    PMT service is able to connect and populate the dbus
+
+commit 0db892750d2aa8ae3a5d70229de95fd11d3acee6
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Fri Apr 19 21:08:32 2024 +0530
+
+    Add Support for sendAsync method (#50)
+    
+    Add Support for sendAsync method
+    
+    Add sendAsync API with socket interface
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 3e4d5082f35cb4e317b41c3269c45d038a778a6c
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Fri Apr 19 14:38:37 2024 +0530
+
+    Add support for sendReceiveAsync method (#49)
+    
+    Add support for sendReceiveAsync API in socket interface
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 494115c93b49b47dbb4162e984c0cdfd1be73512
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Wed Apr 17 18:03:02 2024 +0530
+
+    Add support for sendReceiveYield (#48)
+    
+    Add support for sendReceiveYield
+    
+    sendReceiveYield is the equivlent api available in dbus. If
+    unix socket is used for IPC, this function will be invoked
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 212ef949cbf5d2c6313b06fbf5dcc8f567cbd7c4
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Mon Apr 15 16:31:23 2024 +0530
+
+    Add support to fetch socket path from mctpd (#47)
+    
+    Each mctpd service will create a unix socket from its PID. This
+    info will be populated in dbus. mctpwplus will fetch this info
+    and connect
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 68ef4d3c0d42cb7b2abb81726c2fa3313da645c9
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Mon Apr 15 14:20:54 2024 +0530
+
+    Add network id info (#58)
+    
+    Add network id info enum
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 1ff783e0d5fa14cc3d3bb469bcd1e2f1e6b3e02d
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Fri Apr 12 17:11:59 2024 +0530
+
+    Add support for onSocketReceive (#46)
+    
+    onSocketReceive is responsible for processing payload
+    received from unix socket. Protocol header will be
+    removed and the paylod will be propagated to upper
+    layer application
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 50ba636a2c41a074d9a09026cc635d4f28db41fd
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Thu Apr 11 11:20:51 2024 +0530
+
+    Socket: Support to receive payload (#45)
+    
+    Add support to receive paylod on unix socket
+    
+    once requested mctp service is found, wrapper will try to
+    connect to the unix server running in mctpd and start listening
+    for incoming payload
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit 45d519a79b0b4414c5b5e31f48e0e8a224b3f75f
+Author: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Date:   Mon Apr 1 21:32:14 2024 +0530
+
+    Add initial files to support unix socket as IPC (#44)
+    
+    dbus will be replaced with unix socket for IPC between
+    mctpwplus and mctpd. This PR add the basic files for
+    the support
+    
+    Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+
+commit f29c9e98087c3d93d67e37dd5b51c62ce6279079
+Author: Moni kumar <monix.kumar@intel.com>
+Date:   Tue Mar 26 13:10:49 2024 +0530
+
+    Add EID to map even if callback is not registered (#56)
+    
+    Wrapper library misses to add dynamically found EIDs if the
+    network change callback is not given. Fix the same.
+    
+    Signed-off-by: moni kumar <monix.kumar@intel.com>
+
+commit e213b86895457d615c5c28de6535feb7f48e017a
+Author: Arun P. Mohanan <arun.p.m@intel.com>
+Date:   Thu Feb 29 21:26:45 2024 +0530
+
+    Add fall back library for boost dependency (#41)
+    
+    When mctpwplus library is compiled with other projects which doesn't
+    use docker, build fails if boost library is not found.
+    
+    Add boost as a subproject to compile in such scenario.
+    
+    Tested:
+    Standalone build passed in docker less environment.
+    
+    Signed-off-by: Arun P. Mohanan <arun.p.m@intel.com>
+
+commit e8c8636ab55d529ac038a4e05f34a809e8f473c7
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Nov 22 17:05:41 2023 +0530
+
+    Fix: MCTP events not captured (#40)
+    
+    If no MCTP service were present mctpwplus never marks initialisation
+    done as true. Fix the code flow.
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 559fe03d86cd2d785b0708f7a2cbaa468abe7c21
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Nov 21 10:26:21 2023 +0530
+
+    Call register responder during discovery (#39)
+    
+    Call register responder during discovery
+    
+    Due to some timing issue sometimes register responder call happens while
+    discovery is running. Because of this actual DBus call to mctpd service
+    may not happen. Fix the code flow.
+
+commit 5bcfba22207f3ee06706b331bfbcc8d013d5d744
+Author: Jason M. Bills <jasonm.bills@yahoo.com>
+Date:   Fri Nov 17 12:30:37 2023 -0700
+
+    Update LICENSE (#36)
+    
+    Update LICENSE with full text
+
+commit 7825cd4fdb9abf06d179bd5421780dc63d218fb1
+Author: Arun Lal K M <arun.lal@intel.com>
+Date:   Tue Oct 10 10:40:08 2023 +0530
+
+    Prepare mctpwplus for unit test
+    
+    The changes provides a docker environment to run unit test. And this framework will be used to later add gtest as well.
+    We could have done unit test without Docker as well, but Docker method is important when (in future) we make unit test part of CI builds.
+    
+    This change is also crucial for making gtest work in nvme-mi-daemon, and making existing unit test (gtest) of nvme-mi-daemon part of CI builds.
+    
+    Tested:
+    
+    Used command ./docker_run.sh to run the docker.
+    Went to folder /root/local/ in docker instance.
+    Used command ./unit_test.sh to run the unit test.
+
+commit f732c3f2eefd9c394f99b5470a1a6a11a80b591f
+Author: Kaisrlik <ja.kaisrlik@gmail.com>
+Date:   Mon Sep 11 17:53:26 2023 +0200
+
+    Add CXL CCI and CXL FM API Message Types
+    
+    Extending header file according to DSP0239 v1.9.0 Table 1.
+    
+    Signed-off-by: Jan Kaisrlik <jan.kaisrlik@intel.com>
+
+commit bacc83457c6c666c4dbe8730216c26d6be5e1722
+Author: Arun Lal K M <arun.lal@intel.com>
+Date:   Wed Jul 5 14:10:15 2023 +0530
+
+    Crash fix in onNewEID (#32)
+    
+    In boost::asio::spawn's lambda, if we pass an argument by reference we need to make sure that the argument will still be valid when this lambda get's called later on.
+    
+    Code flow sequence is
+    onMCTPEvent -> onNewInterface -> onNewEID
+    
+    onNewEID makes a In boost::asio::spawn and passes on ref of a string which is taken from sdbusplus::message::message. Which goes out of scope as soon as soon as onMCTPEvent goes out of stack.
+    
+    Changed made to pass a copy of the required string and not the reference.
+    
+    Signed-off-by: Arun Lal K M <arun.lal@intel.com>
+
+commit 5ed8b2c4655a2be0ddc4684d7a78aca085218868
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu Jun 15 19:13:11 2023 +0530
+
+    Add NetworkID support (#29)
+    
+    MCTPWrapper: Introduce 32bit EIDs
+    
+    Combine network id and 8 bit eid to form a 32 bit extended eid that
+    can be unique among networks.
+    
+    Tested:
+    Build passed. Tested with modified consumer application source.
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit a3c7bb75c1927b650aad628cc875a63bf2f8e6f8
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri May 19 16:39:01 2023 +0530
+
+    Reduce signal matchers
+    
+    Some dbus signal regarding mctp network changes were not invoking callbacks in wrapper. Also sender filter was not working. Fix the issue by reducing the number of match objects to one.
+    
+    Tested:
+    No regression issues found.
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit f7263757bf2de4d87e9b36b400531aae6f34cdd4
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu May 4 22:07:54 2023 +0530
+
+    Run clang format (#28)
+    
+    Run clang fort on the files
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 9ed6be3274f1ab62694b96cbb65485f5a55929ee
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Apr 26 23:54:28 2023 +0530
+
+    Add getOwnEIDs API (#26)
+    
+    Add new API getOwnEIDs to return BMC's own EIDS
+    available across MCTP services
+    
+    Tested:
+    Tested using emulator.
+    
+    Signed-off-by: Nidhin MS nidhin.ms@intel.com
+
+commit 78b7c5933d93e577a4db047d05d0892e8c488e7c
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Jan 27 18:14:50 2023 +0530
+
+    Fix typo in logging (#25)
+    
+    Fix typo in logging on service stopping callback
+    
+    Tested:
+    Build was succesful
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 233c20c2c2e4c480dbad5cb33344f4fbb0048404
+Author: Prithvi A Pai <prithvi.a.pai@intel.com>
+Date:   Tue Jan 10 09:57:15 2023 +0530
+
+    Consumers of mctpwplus crashing
+    
+    getBusByID can throw D-Bus exceptions in case of incorrect
+    interface lookups. Handle the exceptions.
+    
+    Tested:
+    Tested on a platform where incorrect D-Bus interface look up
+    was happening. The exceptions are handled now.
+    
+    Signed-off-by: Prithvi A Pai <prithvi.a.pai@intel.com>
+
+commit 1a2fa9ec77899907d4e9198c692b0dc767b89e16
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Nov 23 13:35:11 2022 +0530
+
+    Update README (#21)
+    
+    Add description for nothread variant of the library in README
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 0dac88ca6c1dcf1dd709dab12857b6a8a03a5f53
+Author: Vernon Mauery <vernon.mauery@linux.intel.com>
+Date:   Mon Oct 10 23:37:27 2022 -0700
+
+    Change c++ std to 20
+    
+    Building things that use sdbusplus with gcc-12 requires
+    -std=c++-20 to successfully compile.
+    
+    Signed-off-by: Vernon Mauery <vernon.mauery@intel.com>
+
+commit 57d29683ea8e775ca90c2568a86c3c43bff2f7e7
+Author: jmbills <jasonm.bills@yahoo.com>
+Date:   Tue Sep 20 23:18:29 2022 -0600
+
+    Fix build error with Boost 1.80 (#20)
+    
+    Though it's not clear why, updating to Boost 1.80 causes a build failure
+    when handling the `return 1` statement in the boost::asio::spawn lambda
+    function.
+    
+    It doesn't appear that the return does anything, so this removes it to
+    fix the build.
+    
+    Signed-off-by: Jason M. Bills <jason.m.bills@intel.com>
+
+commit 608c86743bdf0a1752b7c5503ec0dab2b47f877d
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Jul 29 11:16:56 2022 +0530
+
+    Update README
+    
+    Update README file to include examples for receive callback and network
+    reconfiguration callback.
+    
+    Tested:
+    Tested in local markdown preview
+
+commit 7b3c71e2f1159a55c674d4c265217506f5de37b7
+Author: Sumanth Bhat <sumanth.bhat@intel.com>
+Date:   Thu Jul 28 10:11:41 2022 +0530
+
+    Add I3C support in mctpwplus
+    
+    This patch adds support for I3C binding in MCTP transport. A new I3C binding identifier is provided for upper layer applications in order to subscribe for endpoints available on I3C endpoint.
+    
+    Also, fixed two issues found during testing -
+    
+    CLI11 library provides only header file, and does not provide package config. Accommodating those changes in example repo's meson.build.
+    Fix rvalue handling in detectMctpEndpointsAsync function
+    Tested:
+    probe-device example program was used to test I3C endpoint probing. Successfully probed a MCTP over I3C endpoint.
+    
+    Signed-off-by: Sumanth Bhat sumanth.bhat@intel.com
+
+commit f77105ac3e81a9f52628933e518078fb2f42124a
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Jul 26 10:31:26 2022 +0530
+
+    Fix: RegisterResponder API
+    
+    Currently registerResponder API calls MCTPD DBus API with same args. But
+    MCTPD has different signature for RegisterResponder and
+    RegisterVDPCIResponder. Update wrapper to call correct method with
+    correct arguments depending on the type.
+    
+    Tested:
+    Tested using Aardvark tool and verified Get Vendor defined version
+    support
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 38c38aa4eeac77745c60ae7311e9d539829f2bf2
+Author: Sumanth Bhat <sumanth.bhat@intel.com>
+Date:   Wed Jun 15 18:30:01 2022 +0530
+
+    Add an API to register responders with MCTP Layer
+    
+    MCTP Layer provides support for discovery of message types
+    by remote endpoints. Responder applications within BMC need
+    to register themselves with MCTP Layer along with their spec revision
+    number. This provides an API to help register the responders.
+    
+    Tested:
+    Wrote an example code for API usage and verified that D-Bus calls
+    are being made correctly to register the responder.
+    
+    Signed-off-by: Sumanth Bhat <sumanth.bhat@intel.com>
+    Co-authored-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 8cf1192331f6ed93bea7cc9b9691803335ab43cf
+Author: Johnathan Mantey <johnathanx.mantey@intel.com>
+Date:   Tue Jun 14 02:33:21 2022 -0700
+
+    Eliminate logging noise on BMC console
+    
+    Using phosphor::logging::level::ERR to emit messages is causing a
+    significant amount of noise on the BMC console, effectively blocking
+    any intersting 'signal'.
+    
+    Modify these calls to use phosphor-logging at the DEBUG output level
+    to eliminate the incessant noise.
+    
+    Tested:
+    The logging messages disappear under normal operation.
+    Enabling DEBUG logging, and usint the '-p 7' journalctl command line
+    control permits these messages to be viewed again.
+    
+    Change-Id: I237d5c3406384b9684e83662b594609751b9564c
+    Signed-off-by: Johnathan Mantey <johnathanx.mantey@intel.com>
+    Co-authored-by: Sumanth Bhat <sumanth.bhat@intel.com>
+
+commit 2f525a71e7d35997cecc133481828f9c4efa506f
+Author: Sumanth Bhat <sumanth.bhat@intel.com>
+Date:   Wed May 18 09:40:00 2022 +0530
+
+    Add blocked send-receive method to mctpwplus
+    
+    Some applications work on blocked MCTP request-response
+    calls. Add support for such applications by exposing a
+    blocked send-receive API.
+    
+    Tested: Wrote an example code to consume the API.
+    Blocked calls working as expected
+    
+    Signed-off-by: Sumanth Bhat <sumanth.bhat@intel.com>
+
+commit 15c9d17ced7e7ed3ce87d30b0adb692e101b1e08
+Author: HsiaoHui <hsiao-huix.chen@intel.com>
+Date:   Thu May 5 15:23:35 2022 +0800
+
+    Fix typo on SPDM keyword
+    
+    This just fixes typo on the SPDM keyword.
+    
+    Signed-off-by : hsiaoh1x <hsiaoh1x @intel.com>
+    Co-authored-by: Sumanth Bhat <sumanth.bhat@intel.com>
+
+commit e085532db9dcd99918dd0d267d9b020e096eec3d
+Author: Sumanth Bhat <sumanth.bhat@intel.com>
+Date:   Wed May 4 08:01:44 2022 +0530
+
+    Fix minor errors in vendor defined messages (#8)
+    
+    This fixes the following -
+    (1) Renamed vendorMessageId as intelVendorMessageId in order
+    to clarify that this is an Intel specific identifier
+    (2) Fix off by one error in the vendor header structure
+    (3) Fix masking issue in the intelVendorId message check
+    
+    Tested: Tested with one of the vendor defined message type
+    application that remote EID generated VDM messages are
+    received through the wrapper layer.
+    
+    Signed-off-by: Sumanth Bhat <sumanth.bhat@intel.com>
+
+commit 28c419915842629d50d5e8d3c43532278d3557e9
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Mon Apr 18 11:21:48 2022 +0530
+
+    Remove CMake files (#10)
+    
+    MCTP wrapper is now using meson as build system. So remove CMake files
+    since they are not used.
+    
+    Tested:
+    Build passed
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 92b94de8a0261a13c319dfa341992c2908f735fa
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Apr 13 12:44:20 2022 +0530
+
+    Update README.md (#9)
+    
+    mctpwplus uses meson to build the library now. Update the README also to
+    reflect the same
+    
+    Tested:
+    Tested in local markdown preview
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit f82046db8b013b75cf75c0974bb85312c249ac3a
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Mon Apr 4 20:10:52 2022 +0530
+
+    Use meson build system (#7)
+    
+    Currently mctpwplus uses cmake as build system.
+    Convert it to meson, since OpenBMC as a project is
+    adopting meson.
+    
+    Tested:
+    Dependent applications pldmd and NVMe working fine
+    
+    Signed-off-by: Nidhin MS nidhin.ms@intel.com
+
+commit 6172fff66684606d84a70e91fbae8edb548cd76a
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Mar 16 16:20:45 2022 +0530
+
+    Fix: io_context was not used in spawn (#6)
+    
+    Fix: io_context was not used in spawn
+    
+    io_context needs to be passed as the first argument in spawn function.
+    dbus call back was not calling it correctly. Fix the same
+    
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 4a59172db42e6bc55ea00b8c41adb54894a4f9b5
+Author: Jiaqing Zhao <jiaqing.zhao@intel.com>
+Date:   Mon Feb 21 14:30:05 2022 +0800
+
+    Wrapper API for getting device loaction string (#4)
+    
+    This patch adds a new API to get device location string from DBus by
+    eid. It queries the LocationCode DBus property to get the value. When
+    it is not available or empty string, std::nullopt will be returned.
+    
+    Tested:
+    Calling this API in examples/scan_endpoints can get the device location
+    successfully.
+    
+    Signed-off-by: Jiaqing Zhao <jiaqing.zhao@intel.com>
+
+commit 3b77416aac20b1ca861d2d54ff9386d3b78b024b
+Author: Sumanth Bhat <sumanth.bhat@intel.com>
+Date:   Tue Feb 1 14:39:04 2022 +0530
+
+    Fix variable naming
+    
+    MCTP Wrapper library creates MCTP device added event in
+    case a new device comes up with the interested MCTP message
+    type. Change the variable name to reflect the same.
+    
+    Tested: Only variable name change, build passes.
+    
+    Signed-off-by: Sumanth Bhat <sumanth.bhat@intel.com>
+
+commit 7a7425ce324497d1199af2cc9ce0e948cc226307
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu Sep 30 22:01:51 2021 +0530
+
+    [mctpwplus] Add README.md
+    
+    Add README.md file describing the architecture and build steps for the
+    code
+    
+    Tested:
+    Markdown tested in local preview
+    
+    Change-Id: I316af793b1562886fe36621df68dbd04ec5af3f0
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit fb76804181dcdfa22a2eb0127c2a5eed9e08dd4b
+Author: Gade-RajasekharReddy@ <raja.sekhar.reddy.gade@intel.com>
+Date:   Tue Nov 16 22:53:06 2021 +0530
+
+    mctpwplus: Add releaseBandwidth APIs
+    
+    Adding releaseBandwidth APIs, so that they can be consumed by
+    applications like pldmd.
+    
+    Tests:
+    Tested the APIs during PLDM firmware update, they are working as
+    expected.
+    
+    Change-Id: Ib8db39c4f3bf8f05838bdf5eed918edf7188b69c
+    Signed-off-by: Gade-RajasekharReddy@ <raja.sekhar.reddy.gade@intel.com>
+
+commit 0807c2ab0b9370dfe4f276bb7d373e1b67d8a700
+Author: Gade-RajasekharReddy@ <raja.sekhar.reddy.gade@intel.com>
+Date:   Fri Nov 12 18:04:25 2021 +0530
+
+    mctpwplus: Add reserveBW APIs
+    
+    Adding reserveBW APIs, so that they can be consumed by applications like
+    pldmd.
+    
+    Tests:
+    Tested the APIs during PLDM firmware update, they are working as
+    expected.
+    
+    Change-Id: I15b9e6d2f9dc89ce8e7fbc785ed96c651f877c5a
+    Signed-off-by: Gade-RajasekharReddy@ <raja.sekhar.reddy.gade@intel.com>
+
+commit 2c89fe5d0a89e27a69ce09ef025afa2c76e0f5ba
+Author: Jiaqing Zhao <jiaqing.zhao@intel.com>
+Date:   Tue Aug 31 16:09:25 2021 +0800
+
+    [mctpwplus] Partial matching for vdpci endpoints
+    
+    This patch implements a partial matching mechanism to allow vendor
+    defined messages without vendor id and/or vendor message type. Both
+    fields are required and used for matching before, thus some non-Intel
+    devices will not work.
+    
+    The allowed matching rules are:
+    No matching:  All devices support vdpci message.
+    VID only:     Devices support vdpci message with specific VID.
+    VID and Type: Devices support vdpci message with specific VID, and
+                  supports specific message type (existing behavior)
+    
+    A new MCTPConfiguration constructor is also added for VID-only match.
+    MCTPConfiguration(MessageType msgType, BindingType binding,
+                      uint16_t vid)
+    
+    Tested:
+    Tested with mctp_probe example, the platform setup is
+        Bus    MsgType        VID
+        pcie   vdpci          8086
+        pcie   {spdm, vdpci}  1000
+    
+    $ mctp_probe -m vdpci -b pcie
+    EID:8 Bus:512 Service:xyz.openbmc_project.MCTP_PCIe
+    EID:10 Bus:512 Service:xyz.openbmc_project.MCTP_PCIe
+    
+    $ mctp_probe -m vdpci -b pcie --vid 0x1000
+    EID:10 Bus:512 Service:xyz.openbmc_project.MCTP_PCIe
+    
+    $ mctp_probe -m vdpci -b pcie --vid 0x8086 \
+                 --vdmtype 0x100 --vdmmask 0xffff
+    EID:8 Bus:512 Service:xyz.openbmc_project.MCTP_PCIe
+    
+    Change-Id: I16bdfd8af1edd533d090e80bc473066082f5a440
+    Signed-off-by: Jiaqing Zhao <jiaqing.zhao@intel.com>
+
+commit 1f44e9cc9d453b61286486dc95e0d1aed9d9235e
+Author: Jiaqing Zhao <jiaqing.zhao@intel.com>
+Date:   Tue Aug 31 16:02:54 2021 +0800
+
+    [mctpwplus] Add new example mctp_probe
+    
+    This patch added a new example application mctp_probe, which is
+    similar to mctp_device manager, but accepts specific configurations
+    like binding and message types.
+    
+    It is used for testing the device probing and matching of mctpwplus.
+    
+    Change-Id: I6733c80e09da4ba6f9ece950630e48f39e2d70c4
+    Signed-off-by: Jiaqing Zhao <jiaqing.zhao@intel.com>
+
+commit 8b6330c8cdc2e8bd220bfc711afecdceec8e4d63
+Author: Jiaqing Zhao <jiaqing.zhao@intel.com>
+Date:   Fri Aug 27 00:29:23 2021 +0800
+
+    [mctpwplus] Separate fields in VendorDefinedValue
+    
+    In previous code, VendorID and VendorMessageType are stored in
+    VendorDefinedValues, and there is no way to use only one of them.
+    This patch resolves this issue without changing the API and code
+    behavior.
+    
+    This is used for enabling no match and vendor-id-only match when
+    creating endpoint map.
+    
+    Tested:
+    Tested with a modified version of mctp_probe example with its VID-only
+    matching support removed. Verified code behavior is unchanged.
+    
+    The testing platform setup is:
+        Bus    MsgType        VID
+        pcie   vdpci          8086
+        pcie   {spdm, vdpci}  1000
+    
+    $ mctp_probe -m vdpci -b pcie
+    EID:8 Bus:512 Service:xyz.openbmc_project.MCTP_PCIe
+    EID:10 Bus:512 Service:xyz.openbmc_project.MCTP_PCIe
+    
+    $ mctp_probe -m vdpci -b pcie --vid 0x8086 \
+                 --vdmtype 0x100 --vdmmask 0xffff
+    EID:8 Bus:512 Service:xyz.openbmc_project.MCTP_PCIe
+    
+    Change-Id: I53341034546d607a07f480db4f894ab6e2a6474f
+    Signed-off-by: Jiaqing Zhao <jiaqing.zhao@intel.com>
+
+commit f017881e3e25481fb6eaa5b5fa561b1ce184d2a8
+Author: Jiaqing Zhao <jiaqing.zhao@intel.com>
+Date:   Thu Aug 26 23:43:17 2021 +0800
+
+    [mctpwplus] Convert VendorID with std::stoi
+    
+    Currently VendorID string is converted to uint16 with sstream, which is
+    complex and slow. This patch uses std::stoi instead.
+    
+    Tested:
+    Verified VendorID can be parsed successfully with mctp_device_manager
+    
+    Change-Id: Ia28f0a6d318792cc717a8d68270e9a167e9c61c2
+    Signed-off-by: Jiaqing Zhao <jiaqing.zhao@intel.com>
+
+commit 4ab68453a5a8a2cfc97a616b9c8a8269b2397dd4
+Author: Arun P. Mohanan <arun.p.m@linux.intel.com>
+Date:   Wed Aug 11 19:03:16 2021 +0530
+
+    [mctpwplus]MCTP device discovery trigger support
+    
+    MCTP devices can go for planned reset after certain operations like
+    firmware update. In this cases the device will need a rediscovery.
+    Add an API to trigger MCTP device discovery so that upper layer
+    applications can request for a manual re-discovery in such cases.
+    
+    Tested:
+    Combining more patches together from pldmd, verified MCTP device
+    discovery is getting triggered as expected
+    
+    Change-Id: I307640cd8d4e314de59f823ead1b0362ccef2c47
+    Signed-off-by: Arun P. Mohanan <arun.p.m@linux.intel.com>
+
+commit b50bff2b0c379ebd190637e58aaefb888311faf0
+Author: Amit Kumar Tiwari <amitx.kumar.tiwari@intel.com>
+Date:   Wed May 19 10:34:50 2021 +0000
+
+    [mctpwplus]Hide unnecessary APIs using pimpl idiom
+    
+    We can limit public apis exposed in wrapper header file to only
+    detect() and send/Receive().Seperate wrapper implementation to
+    another class and use pImpl idiom to hide unnecessary APIs from
+    public header file.
+    
+    Tested:
+    Unit test cases are passed for send_receive, scan_endpoints,
+    wrapper_object, device_manager & receive_callback.
+    
+    /usr/bin/send_receive 9
+    EID:9 Bus:2 Service:xyz.openbmc_project.MCTP_SMBus_PCIe_slot
+    Async Response 1 15 0 3 0 1 0 0 0 5 0 240 240 241 251 143 134 74
+    Yield Response 1 15 0 3 0 1 0 0 0 5 0 240 240 241 251 143 134 74
+    
+    /usr/bin/receive_callback 9
+    EID:9 Bus:2 Service:xyz.openbmc_project.MCTP_SMBus_PCIe_slot
+    Send status async 0
+    onMCTPReceive EID 9
+    onMCTPReceive Status 0
+    onMCTPReceive Response 1 15 0 3 0 1 0 0 0 5 0 240 240 241 251 143 134 74
+    Yield Status true. Send status 0
+    onMCTPReceive EID 9
+    onMCTPReceive Status 0
+    onMCTPReceive Response 1 15 2 3 0 202 12 1 35 69 103 128 5 0 52 86 120 0 0 0 18
+    
+    /usr/bin/mctp_device_manager
+    EID:9 Bus:2 Service:xyz.openbmc_project.MCTP_SMBus_PCIe_slot
+    
+    /usr/bin/scan_endpoints
+    Eid 9 on xyz.openbmc_project.MCTP_SMBus_PCIe_slot
+    
+    /usr/bin/wrapper_object
+    Using message type : 0x1
+    Created MCTPWrapper object from io context
+    
+    Change-Id: Iba9c5587795e14eb3da68306fc33b78bfc11b8c3
+    Signed-off-by: Amit Kumar Tiwari <amitx.kumar.tiwari@intel.com>
+
+commit 21687f9348052654f9e04c1c5299ef451c045e69
+Author: Sumanth Bhat <sumanth.bhat@intel.com>
+Date:   Mon May 3 10:05:26 2021 +0000
+
+    [MCTPD]Fix boost library source in standalone builds
+    
+    Boost libraries were hosted by bintray and this was EOL'd. Thus,
+    updating the mirror link to enable standalone builds.
+    
+    Tested:
+    Standalone build passed.
+    
+    Change-Id: I0ff033c8ba7c1bec256ba1d496b67adc18ce036a
+    Signed-off-by: Sumanth Bhat <sumanth.bhat@intel.com>
+
+commit e99dbce4dbb00800bdb8e756ec77d0e3d9c20519
+Author: Archana Kakani <archanax.kakani@intel.com>
+Date:   Tue Mar 30 10:51:59 2021 +0000
+
+    [MCTPWPLUS] Add listener to monitor service
+    
+    Mctp wrapper library listen only for new MCTP services coming up.
+    Add one new DBus signal listener to watch services going down.
+    If the service goes down, clear associated matchers.
+    
+    Matchers are inserted in the map with key as servicename.
+    When service goes down, servicename is used to
+    remove matcher entry from map.
+    
+    Tested:
+    Fw update worked and verified pldmd device tree.
+    Tested using existing scan_endpoints example code.
+    Below are the logs after restarting the service.
+    
+    Mar 30 06:13:46 intel-obmc scan_endpoints[719]: Deleting device :1.218
+    Mar 30 06:13:46 intel-obmc scan_endpoints[719]: unRegisterListeners: :1.218
+    Mar 30 06:13:48 intel-obmc scan_endpoints[719]: New service :1.219
+    
+    Change-Id: Ia867c112bd29aee7938e4d26f50d5c4056680261
+    Signed-off-by: Archana Kakani <archanax.kakani@intel.com>
+
+commit 3034d549658ac17e7b86a4afe055fbf849c436b5
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Mar 12 11:46:40 2021 +0530
+
+    [mctpwplus] Add package config .pc file
+    
+    mctpwplus library is not detected as meson dependency. Add .pc file to
+    fix it.
+    
+    Tested:
+    Package config file installed in /usr/lib/pkgconfig
+    Dependency picked up by meson
+    
+    Change-Id: I25a775d7baef4b522f70421cbee301b4b2bd5dda
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 416015d6f30897091567c0e4f85f7108dc3ad927
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Mar 10 00:14:11 2021 +0530
+
+    [mctpwplus] Fix service restart required to detect devices
+    
+    Callback for new mctp services were not registerd if no mctp services
+    was running when detectMctpEndpoint method was called. Fix the same.
+    
+    Tested:
+    Tested in BMC. Devices populated in pldm tree. Firmware update worked.
+    
+    Change-Id: I0bd2ff94403c42b0396f9b87c2cd3589f60ee41f
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit ad997614dbab58dae3963fe22c555de4ef00175e
+Author: Archana Kakani <archanax.kakani@intel.com>
+Date:   Fri Jan 29 07:08:22 2021 +0000
+
+    [mctpwplus] Add Secure Message Type
+    
+    Add Secure Message Type.
+    
+    [Tested]
+    Build successful. No functional change.
+    SecureMsg support is verified using mctp emulator.
+    
+    Change-Id: I3a11128709b85870095aff5b00c3bd54e80221c7
+    Signed-off-by: Archana Kakani <archanax.kakani@intel.com>
+
+commit ae6f430c2c6f96ee182624f8d21ecc683a062b66
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Feb 26 16:32:17 2021 +0530
+
+    [mtcpwplus] Fix : OnMessageReceived not received from new services
+    
+    OnMessageReceivedSignal was not getting received from services coming up
+    after wrapper object is created. Fix the same
+    
+    Tested:
+    OnMessageReceived handled from mctp service started after pldmd
+    
+    Change-Id: I88acf1e0c33aded3fef31be08c251f53b5f73e96
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 07dcfe707e5caf15a564cc9e60686e38afae6aa5
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu Feb 11 15:41:50 2021 +0530
+
+    [mctpwplus] CMake install path fix
+    
+    CMake install path was hardcoded to /usr/lib. Fix the same to include mctpwplus as
+    dependency in standalone builds for other projects.
+    
+    Tested:
+    Build passed
+    
+    Change-Id: Ifdac45c8fba9ffc459e52677937c4f9e7b2f0aed
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 223383a4d848847dbc2248345181bf42dd312fe2
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu Feb 18 15:22:04 2021 +0530
+
+    [mctpwplus] Fix MessageReceivedSignal not received
+    
+    Fix issue MessageReceivedSignal not received when service monitor is
+    added. Existing list of bus rule matchers were checked for empty while
+    registering discovered services. Addition of service monitor added an
+    entry in matchers list. So remove empty check for the same and make sure
+    detectMctpEndpoints() is not called again
+    
+    Tested:
+    Service monitor and receive callback worked
+    
+    Change-Id: I77f25093324fee29a08e0a95a81bd983f8e26be0
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 9f60100159eaf572c84e136a27fb52d9297c3006
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Feb 10 22:52:27 2021 +0530
+
+    [mctpwplus] Add filtering for VDPCI devices
+    
+    Currently wrapper objects configured with VDPCI message type will match
+    all devices irrespective of their vendor id and vendor message type. Add
+    a filtering condition so that only matching devices is added in end
+    point map
+    
+    Tested:
+    Tested in bmc and verified that only matching devices are discovered
+    
+    Change-Id: I3bc730c8df35254130451a0a7cc4422899e5a06b
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 41a558dab09aa84bb22e3659a55ee149fbaae90e
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Mon Feb 15 11:27:48 2021 +0530
+
+    [mctpwplus] Add nullcheck for callbacks
+    
+    Callbacks received in async versions of some methods were invoked
+    without validating. Add validations for the same
+    
+    Tested:
+    bad_function_call exception not thrown when nullptr is passed
+    
+    Change-Id: Ief8e768584fd15bbf52a7b855e01cc2c1279b951
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 143d9a00a6536d361e24c4088606d22f232e0bf7
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu Jan 28 23:26:32 2021 +0530
+
+    [mctpwplus] Add debug info in getBusId method
+    
+    Currently error message from getBusId method is printed along with
+    findBusByBindingType which is difficult to debug. Add log to indicate
+    that error is from getBusId
+    
+    Tested:
+    Tested wrapper functions are working
+    
+    Change-Id: Ib50792a5630db66d865bae6bbc156707a8e49568
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 28e005bd12447c88d49026da5867ed5cd511f08c
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Jan 29 15:10:54 2021 +0530
+
+    [mctpwplus] Add service monitor
+    
+    Add a new match rule in mctpwplus to listen for InterfacesAdded signal
+    on mctp object. If interface for given binding type is added then the
+    sender is treated as a new mctp service and added to the system
+    
+    Tested:
+    Tested in bmc. mctp services started after wrapper creation is detected
+    
+    Change-Id: I790cc838447ea11f21d85b5619548565fe57244e
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit c280b9e86a2c8eea9a883001286222c02b7fc1fb
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Feb 3 16:34:18 2021 +0530
+
+    [mctpwplus] Fix variable initialization
+    
+    Some variables in dbus_cb.cpp were used before initialized. Update the
+    same
+    
+    Tested:
+    Build passed
+    
+    Change-Id: I5c3da913e57e77b5f2afaff6818b5a77f3d35b9d
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit f49dd05e91d78b1e33c08ac6c58b84cab742d5a4
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Fri Jan 29 23:13:37 2021 +0530
+
+    [mctpwplus] Ignore BusPath read error
+    
+    Currently findBusByBindingType throws error if reading BusPath from any
+    of the mctp services fails. Continue processing next service even if
+    exception occurs in one
+    
+    Tested:
+    Wrapper functions are working
+    
+    Change-Id: I0cb0b2e5e9599bc8e07fd93e0871911cd59a320b
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 93ee1af2ef0d0ca3319a6ca72b791c7bb94b1024
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu Jan 28 22:39:25 2021 +0530
+
+    [mctpwplus] Ignore InterfacesAdded for base mctp object
+    
+    onInterfaceAdded function is targetted for callbacks when a new device
+    is added. InterfacesAdded signal is emitted from
+    /xyz/openbmc_project/mctp also. Parse eid from object path only
+    if SupportedMessageTypes interface is added. SupportedMessageTypes
+    interface wont be added to /xyz/openbmc_project/mctp object
+    
+    Tested:
+    Tested signals are handled correctly in bmc
+    
+    Change-Id: I5fd5a073919d5792e62ee92615c2f7eef20d1d0b
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 31ef63a5226492991dc05df4d6300e37eb3d310e
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Dec 29 21:37:43 2020 +0530
+
+    [mctpwplus] Add device management
+    
+    Add callback when a new device is added into the system or existing
+    device is removed
+    
+    Tested:
+    Tested using emulator
+    
+    Change-Id: I293e17793d28630f2f2a72cc74a23c914fc6a34b
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 837c01a0e8fc8fd4f4e264b55e966851806ddb8f
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Dec 29 04:55:38 2020 +0530
+
+    [mctpwplus] Add MCTPWrapper send methods and receive callback
+    
+    Add send method in mctp wrapper using yield and also async mode
+    
+    Add receive callback for mctp messages
+    
+    Add one example also to demostrate how to send a request and also to
+    register for mctp receive callback
+    
+    Tested:
+    Build passed
+    Tested send receive using emulator and real bmc
+    
+    Change-Id: I221034ca78d44b92c7b8e44645fd2b26ee301e96
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit f5a271af83ec35dee28849b2509ee77c8d8c4eb1
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Thu Dec 24 01:34:35 2020 +0530
+
+    [mctpwplus] Add MCTPWrapper sendreceive method
+    
+    Add send receive method in mctp wrapper using yield and also async mode
+    
+    Add one example also to demostrate how to send a request and receive
+    response both asynchronusly and using yield
+    
+    Tested:
+    Build passed. Tested send receive using emulator
+    
+    Change-Id: I9dcb29a3af4e5e65b5f9d27dd823d8644f2c5355
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit a402292ea7668eeb8336a62df34eda1b59a2c5b7
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Wed Dec 23 00:49:25 2020 +0530
+
+    [mctpwplus] Add MCTPWrapper detectMctpEndpoints  method
+    
+    Add detectMctpEndpoints method in mctp wrapper using yield and also
+    async mode. New method will scan and detect available mctp endpoints.
+    
+    Add one example also to demostrate how to create a wrapper object
+    and detect mctp endpoints present in the system.
+    
+    Tested:
+    Build passed. Verified scan_endpoints working
+    
+    Change-Id: I99a6b9891887d4474e7a9378e7d1aa7b91d73c41
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 1649ac90c551aeecb8b9724ea4f3d43e985b01c4
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Dec 22 21:24:39 2020 +0530
+
+    [mctpwplus] Add MCTPWrapper constructor
+    
+    Add constructor for MCTPWrapper accepting MCTPConfiguration and
+    callbacks. Add overloads in constructor
+    1. For sdbus aware applications. Constructor will take shared_ptr to
+    asio::connection object and use it for dbus calls
+    2. For sdbus unaware apps constructor will take boost::io_context and
+    create asio::connection internally
+    
+    Add one example also to demostrate how to create a wrapper object.
+    And also how to provide custom vendor id, message type,
+    message type mask and binding type. Example app just creates
+    a wrapper object and prints a message on success.
+    
+    Tested:
+    Build passed. Verified example application wrapperobject working
+    correctly.
+    
+    Change-Id: I9344448c1a4e284b90641286ddba89c0a7478444
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit c5eae9d13312f0ea5adacf428b36930eb22f30c1
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Mon Jan 11 20:42:41 2021 +0530
+
+    [mctpwplus] Update CMakeList for CI
+    
+    Update CMakelist to maintain compatibility with clang compiler
+    
+    Tested:
+    Build passed
+    
+    Change-Id: I81f07474f3db579c7057d643c60154df86e636c1
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 3046b724755f32a207bc27a9db8f37c854e4ac78
+Author: Nidhin MS <nidhin.ms@intel.com>
+Date:   Tue Dec 22 19:59:47 2020 +0530
+
+    [mctpwplus] Add new project files for mctpwrapper
+    
+    The upper layer applications like PLDM could send and receive MCTP
+    packets over d-bus (using methods exposed by mctpd). However,
+    this makes the application design tied to d-bus. Since mctpd
+    can potentially move towards socket based interfaces/in-kernel
+    implementation, a wrapper library is provided which hides the
+    underlying IPC mechanism (D-Bus/Socket). This way, applications
+    need not be redesigned if mctpd changes its interfaces.
+    
+    Add files
+    Licence
+    clang-format
+    Maintainers list
+    cmake file
+    cmake .in file for standalone build
+    Simple header and cpp files
+    
+    Tested:
+    Build passed
+    
+    Change-Id: I73aa8ff9f4ee030c51c59180edffa8ebd6188559
+    Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+
+commit 596cc807d984201a55cd93ce43edc141d58ce21c
+Author: SCM Administrator <NoEmailShouldEverBeSentToSCMAdmin>
+Date:   Wed Jan 22 18:02:59 2020 -0800
+
+    Initial empty repository

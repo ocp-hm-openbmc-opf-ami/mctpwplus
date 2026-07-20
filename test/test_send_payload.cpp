@@ -78,6 +78,21 @@ TEST(SendCall, SMBus)
                 break;
             }
         }
+        status =
+            mctpWrapper.sendBlocked(DeviceID(eidValid, 0), 0, false, request1);
+        EXPECT_FALSE(status.first);
+        EXPECT_EQ(status.first.value(), boost::system::errc::success);
+        EXPECT_EQ(status.second, 0);
+
+        status =
+            mctpWrapper.sendBlocked(DeviceID(eidValid, 0), 0, false, request2);
+        EXPECT_EQ(status.first.value(), boost::system::errc::success);
+        EXPECT_EQ(status.second, 0);
+
+        status = mctpWrapper.sendBlocked(DeviceID(eidNotExists, 0), 0, false,
+                                         request3);
+        EXPECT_EQ(status.first.value(), boost::system::errc::io_error);
+        EXPECT_EQ(status.second, -1);
         io.stop();
     });
     io.run_for(std::chrono::seconds(15));
