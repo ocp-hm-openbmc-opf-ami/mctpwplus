@@ -86,7 +86,6 @@ class EndpointInfo
   private:
     std::vector<uint8_t> supportedMessageTypes;
     std::vector<uint16_t> vdmTypes;
-    bool spdmMode = false;
 
   public:
     const DeviceID devID;
@@ -107,7 +106,7 @@ class EndpointInfo
                  const std::vector<uint8_t>& _supportedMessageTypes,
                  const std::vector<uint16_t>& _vdmTypes, const bool& _self) :
         supportedMessageTypes(_supportedMessageTypes), vdmTypes(_vdmTypes),
-        spdmMode(false), devID(_devID), uuid(_uuid), selfEndpoint(_self)
+        devID(_devID), uuid(_uuid), selfEndpoint(_self)
     {
         std::sort(supportedMessageTypes.begin(), supportedMessageTypes.end());
         std::sort(vdmTypes.begin(), vdmTypes.end());
@@ -123,13 +122,6 @@ class EndpointInfo
                std::equal(vdmTypes.cbegin(), vdmTypes.cend(),
                           other.vdmTypes.cbegin(), other.vdmTypes.cend());
     }
-
-    bool routeViaSPDM() const
-    {
-        return spdmMode;
-    }
-    void enableSPDMRoute();
-    void disableSPDMRoute();
 
     template <typename T>
     friend class std::hash;
@@ -364,14 +356,17 @@ using OwnEIDChangeCallback = std::function<void(DeviceID)>;
 class MCTPWrapper
 {
   public:
+    MCTPWrapper(const MCTPWrapper&) = delete;
+    MCTPWrapper& operator=(const MCTPWrapper&) = delete;
+    MCTPWrapper(MCTPWrapper&&) = default;
+    MCTPWrapper& operator=(MCTPWrapper&&) = default;
+
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
     using EndpointMapExtended = std::unordered_set<DeviceID>;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
-
-    using HandshakeCallback = std::function<void(boost::system::error_code)>;
 
     /**
      * @brief Construct a new MCTPWrapper object
@@ -796,23 +791,6 @@ class MCTPWrapper
      * @param callback Callback function
      */
     void setExtendedReceiveCallback(ExtendedReceiveMessageCallback callback);
-
-    /**
-     * @brief Initiates handshake between client and SPDM socket server.
-     *
-     * This function initiates the handshake process between the client and
-     * SPDM socket server for a secure connection. Once the server initializes
-     * and sets the secure connection , it calls this method and then the client
-     * starts listening and proceeds with socket initialization.
-     *
-     * @param initiateHandshakeCallback The callback function to be invoked for
-     * initiating the handshake with the SPDM server.
-     * @param deviceID The DeviceID of the device to initiate the handshake
-     * with.
-     * @param connState The SPDM session connection state of the device.
-     */
-    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
-                               DeviceID deviceID, bool connState);
 
     /// MCTP Configuration to store message type and vendor defined properties
     MCTPConfiguration config{};

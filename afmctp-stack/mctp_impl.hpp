@@ -39,7 +39,6 @@ namespace mctpw
 using ByteArray = std::vector<uint8_t>;
 const std::string ccMctpService("au.com.codeconstruct.MCTP1");
 const std::string kMctpService("");
-const std::string spdmService("com.intel.spdmd.secure.session");
 
 /**
  * @brief Wrapper class to access MCTP functionalities
@@ -64,11 +63,18 @@ class MCTPImpl
              const ReconfigurationCallback& networkChangeCb,
              const ReceiveMessageCallback& rxCb);
 
+    MCTPImpl(const MCTPImpl&) = delete;
+    MCTPImpl& operator=(const MCTPImpl&) = delete;
+    MCTPImpl(MCTPImpl&&) = delete;
+    MCTPImpl& operator=(MCTPImpl&&) = delete;
+
     ~MCTPImpl()
     {
-        for (auto [_, sock] : boundSockets)
+        lifeGuard.reset();
+        for (const auto& [_, sock] : boundSockets)
         {
-            sock->cancel();
+            boost::system::error_code ec;
+            sock->cancel(ec);
         }
     }
 
@@ -78,7 +84,6 @@ class MCTPImpl
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
-    using HandshakeCallback = std::function<void(boost::system::error_code)>;
     using datagram = boost::asio::generic::datagram_protocol;
 
     std::shared_ptr<sdbusplus::asio::connection> connection;
@@ -219,23 +224,6 @@ class MCTPImpl
                    const ByteArray& request);
 
     /**
-     * @brief Initiates handshake between client and SPDM socket server.
-     *
-     * This function initiates the handshake process between the client and
-     * SPDM socket server for a secure connection. Once the server initializes
-     * and sets the secure connection , it calls this method and then the client
-     * starts listening and proceeds with socket initialization.
-     *
-     * @param initiateHandshakeCallback The callback function to be invoked for
-     * initiating the handshake with the SPDM server.
-     * @param deviceID The DeviceID of the device to initiate the handshake
-     * with.
-     * @param connState The SPDM session connection state of the device.
-     */
-    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
-                               DeviceID deviceID, bool connState);
-
-    /**
      * @brief Send MCTP request to dstEId and receive status of send operation
      *
      * @param yield boost yiled_context object to yield on dbus calls
@@ -286,17 +274,18 @@ class MCTPImpl
              std::shared_ptr<boost::asio::generic::datagram_protocol::socket>>
         boundSockets;
 
+    // Lifetime token; async handlers capture a weak_ptr and skip if expired.
+    std::shared_ptr<int> lifeGuard = std::make_shared<int>(0);
+
     void setupEndpoints(std::optional<boost::asio::yield_context>);
     void setupDbusListener();
     std::unique_ptr<sdbusplus::bus::match::match> mctpChangesWatch{};
     std::unique_ptr<sdbusplus::bus::match::match> vdmMessagesWatch{};
-    std::unique_ptr<sdbusplus::bus::match::match> spdmWatch{};
     void onMCTPEvent(sdbusplus::message::message& msg);
     void onNewInterface(sdbusplus::message::message& msg);
     void onInterfaceRemoved(sdbusplus::message::message& msg);
     void onMessageReceived(sdbusplus::message::message& msg);
     void onPropertiesChanged(sdbusplus::message::message& msg);
-    void onSPDMSessionEvent(sdbusplus::message::message& msg);
 
     void handleEndpointAddition(
         const std::string objectPath,
@@ -314,22 +303,13 @@ class MCTPImpl
     void handleIfaceRemoval(const std::string objectPath,
                             const std::vector<std::string>& dbusInterfaces);
 
-    void handleSPDMEndpointAddition(
-        const std::string objectPath,
-        const DictType<std::string,
-                       DictType<std::string, MctpPropertiesVariantType>>&
-            values);
-    void handleSPDMEndpointRemoval(
-        const std::string objectPath,
-        const std::vector<std::string>& dbusInterfaces);
-
     BindingType estimateBindingType(const uint32_t networkId);
     bool eligibleForReconfigurationCallback(const EndpointInfo& epInfo);
     void handleIncomingMessage(
         std::shared_ptr<boost::asio::generic::datagram_protocol::socket>,
         const boost::system::error_code&);
     void bindToEndpoint(
-        boost::asio::generic::datagram_protocol::endpoint bindEndpoint);
+        const boost::asio::generic::datagram_protocol::endpoint& bindEndpoint);
     bool isOwnEid(mctpw::DeviceID devID);
 };
 } // namespace mctpw

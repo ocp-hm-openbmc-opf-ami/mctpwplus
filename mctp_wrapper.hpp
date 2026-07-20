@@ -264,6 +264,11 @@ using OwnEIDChangeCallback = std::function<void(DeviceID)>;
 class MCTPWrapper
 {
   public:
+    MCTPWrapper(const MCTPWrapper&) = delete;
+    MCTPWrapper& operator=(const MCTPWrapper&) = delete;
+    MCTPWrapper(MCTPWrapper&&) = default;
+    MCTPWrapper& operator=(MCTPWrapper&&) = default;
+
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
     /* Endpoint map entry: DeviceID, pair(bus,service) */

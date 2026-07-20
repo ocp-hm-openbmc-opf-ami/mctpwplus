@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/openbmc/sdbusplus.git
-revision = HEAD
+revision = 034fbc69ee8d87af750aa0485db4b6ce75b69a6d
 
 [provide]
 sdbusplus = sdbusplus_dep
