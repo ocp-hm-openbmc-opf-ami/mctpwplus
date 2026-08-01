@@ -642,6 +642,7 @@ std::pair<boost::system::error_code, ByteArray>
         }
 
         std::vector<uint8_t> recvData(readLen);
+        addrlen = sizeof(addr);
         rc = recvfrom(socketFD, reinterpret_cast<void*>(recvData.data()),
                       recvData.size(), MSG_TRUNC,
                       reinterpret_cast<struct sockaddr*>(&addr), &addrlen);

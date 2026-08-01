@@ -1,3 +1,14 @@
+commit 455669b590753e364d82a26b886ca9259e6bcaf7
+Author: Joel James <joelx.james@intel.com>
+Date:   Thu Jul 9 11:49:18 2026 +0530
+
+    Initialize addrlen before recvfrom (#155)
+    
+    Initialize addrlen to the sizeof(addr) before recvfrom to avoid
+    uninitialized read.
+    
+    Signed-off-by: Joel James <joelx.james@intel.com>
+
 commit 7ef21bc83dca39b83245d1b9a5467cb4bb49751c
 Author: Joel James <joelx.james@intel.com>
 Date:   Wed Jul 8 08:59:28 2026 +0530
