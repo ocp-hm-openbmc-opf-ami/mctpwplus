@@ -34,21 +34,6 @@ std::ostream& operator<<(std::ostream& os, const mctpw::DeviceID& devID)
     return os << "[network ID :" << static_cast<unsigned>(devID.networkId())
               << ", EID :" << static_cast<unsigned>(devID.mctpEID()) << "]";
 }
-void EndpointInfo::enableSPDMRoute()
-{
-    std::stringstream ss;
-    ss << " SPDM enabled for " << devID;
-    phosphor::logging::log<phosphor::logging::level::INFO>(ss.str().c_str());
-    spdmMode = true;
-}
-
-void EndpointInfo::disableSPDMRoute()
-{
-    std::stringstream ss;
-    ss << " SPDM disabled for " << devID;
-    phosphor::logging::log<phosphor::logging::level::INFO>(ss.str().c_str());
-    spdmMode = false;
-}
 
 MCTPConfiguration::MCTPConfiguration(MessageType msgType, BindingType binding) :
     type(msgType), bindingType(binding)
@@ -135,6 +120,14 @@ boost::system::error_code MCTPWrapper::detectMctpEndpoints()
 
 NetworkID MCTPWrapper::findNetworkId(const eid_t dstEId)
 {
+    auto availableEIDs = this->getEndpointMapExtended();
+    for (const auto& devID : availableEIDs)
+    {
+        if (devID.mctpEID() == dstEId)
+        {
+            return devID.networkId();
+        }
+    }
     return 1;
 }
 
@@ -229,6 +222,13 @@ std::pair<boost::system::error_code, int>
     return pimpl->sendYield(yield, extendedEID, msgTag, tagOwner, request);
 }
 
+std::pair<boost::system::error_code, int>
+    MCTPWrapper::sendBlocked(const DeviceID devID, const uint8_t msgTag,
+                             const bool tagOwner, const ByteArray& request)
+{
+    return pimpl->sendBlocked(devID, msgTag, tagOwner, request);
+}
+
 const MCTPWrapper::EndpointMapExtended& MCTPWrapper::getEndpointMapExtended()
 {
     extEpMap = pimpl->getEndpointMap();
@@ -290,12 +290,4 @@ void MCTPWrapper::setExtendedReceiveCallback(
     ExtendedReceiveMessageCallback callback)
 {
     pimpl->setExtendedReceiveCallback(callback);
-}
-
-void MCTPWrapper::initiateSPDMHandshake(
-    HandshakeCallback initiateHandshakeCallback, DeviceID extendedEID,
-    bool connState)
-{
-    pimpl->initiateSPDMHandshake(initiateHandshakeCallback, extendedEID,
-                                 connState);
 }

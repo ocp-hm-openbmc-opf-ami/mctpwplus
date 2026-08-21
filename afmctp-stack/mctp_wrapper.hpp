@@ -29,9 +29,12 @@
 
 template <typename T1, typename T2>
 using DictType = boost::container::flat_map<T1, T2>;
+using VendorDefinedMessageType =
+    std::tuple<uint8_t, std::variant<uint16_t, uint32_t>, uint16_t>;
 using MctpPropertiesVariantType =
     std::variant<uint16_t, int16_t, int32_t, uint32_t, bool, std::string,
-                 uint8_t, std::vector<uint8_t>, std::vector<uint16_t>>;
+                 uint8_t, std::vector<uint8_t>, std::vector<uint16_t>,
+                 std::vector<VendorDefinedMessageType>>;
 
 namespace mctpw
 {
@@ -83,7 +86,6 @@ class EndpointInfo
   private:
     std::vector<uint8_t> supportedMessageTypes;
     std::vector<uint16_t> vdmTypes;
-    bool spdmMode = false;
 
   public:
     const DeviceID devID;
@@ -104,7 +106,7 @@ class EndpointInfo
                  const std::vector<uint8_t>& _supportedMessageTypes,
                  const std::vector<uint16_t>& _vdmTypes, const bool& _self) :
         supportedMessageTypes(_supportedMessageTypes), vdmTypes(_vdmTypes),
-        spdmMode(false), devID(_devID), uuid(_uuid), selfEndpoint(_self)
+        devID(_devID), uuid(_uuid), selfEndpoint(_self)
     {
         std::sort(supportedMessageTypes.begin(), supportedMessageTypes.end());
         std::sort(vdmTypes.begin(), vdmTypes.end());
@@ -120,13 +122,6 @@ class EndpointInfo
                std::equal(vdmTypes.cbegin(), vdmTypes.cend(),
                           other.vdmTypes.cbegin(), other.vdmTypes.cend());
     }
-
-    bool routeViaSPDM() const
-    {
-        return spdmMode;
-    }
-    void enableSPDMRoute();
-    void disableSPDMRoute();
 
     template <typename T>
     friend class std::hash;
@@ -316,7 +311,7 @@ struct MCTPConfiguration
      */
     inline void setVendorId(uint16_t vid)
     {
-        this->vendorId = std::make_optional<uint16_t>(htobe16(vid));
+        this->vendorId = std::make_optional<uint16_t>(vid);
     }
 
     /**
@@ -328,8 +323,8 @@ struct MCTPConfiguration
      */
     inline void setVendorMessageType(uint16_t msgType, uint16_t mask)
     {
-        this->vendorMessageType = std::make_optional<VendorMessageType>(
-            htobe16(msgType), htobe16(mask));
+        this->vendorMessageType =
+            std::make_optional<VendorMessageType>(msgType, mask);
     }
 };
 
@@ -361,14 +356,17 @@ using OwnEIDChangeCallback = std::function<void(DeviceID)>;
 class MCTPWrapper
 {
   public:
+    MCTPWrapper(const MCTPWrapper&) = delete;
+    MCTPWrapper& operator=(const MCTPWrapper&) = delete;
+    MCTPWrapper(MCTPWrapper&&) = default;
+    MCTPWrapper& operator=(MCTPWrapper&&) = default;
+
     using StatusCallback =
         std::function<void(boost::system::error_code, void*)>;
     using EndpointMapExtended = std::unordered_set<DeviceID>;
     using ReceiveCallback =
         std::function<void(boost::system::error_code, ByteArray&)>;
     using SendCallback = std::function<void(boost::system::error_code, int)>;
-
-    using HandshakeCallback = std::function<void(boost::system::error_code)>;
 
     /**
      * @brief Construct a new MCTPWrapper object
@@ -722,6 +720,21 @@ class MCTPWrapper
                   const ByteArray& request);
 
     /**
+     * @brief Send MCTP request to devID and receive status of send operation
+     *
+     * @param devID Destination MCTP Device ID
+     * @param msgTag MCTP message tag value
+     * @param tagOwner MCTP tag owner bit. Identifies whether the message tag
+     * was originated by the endpoint that is the source of the message
+     * @param request MCTP request byte array
+     * @return std::pair<boost::system::error_code, int> Pair of boost
+     * error_code and dbus send method call return value
+     */
+    std::pair<boost::system::error_code, int>
+        sendBlocked(const DeviceID devID, const uint8_t msgTag,
+                    const bool tagOwner, const ByteArray& request);
+
+    /**
      * @brief Register a responder application with MCTP layer
      * @param version The version supported by the responder. Use if only one
      * version is supported
@@ -778,23 +791,6 @@ class MCTPWrapper
      * @param callback Callback function
      */
     void setExtendedReceiveCallback(ExtendedReceiveMessageCallback callback);
-
-    /**
-     * @brief Initiates handshake between client and SPDM socket server.
-     *
-     * This function initiates the handshake process between the client and
-     * SPDM socket server for a secure connection. Once the server initializes
-     * and sets the secure connection , it calls this method and then the client
-     * starts listening and proceeds with socket initialization.
-     *
-     * @param initiateHandshakeCallback The callback function to be invoked for
-     * initiating the handshake with the SPDM server.
-     * @param deviceID The DeviceID of the device to initiate the handshake
-     * with.
-     * @param connState The SPDM session connection state of the device.
-     */
-    void initiateSPDMHandshake(HandshakeCallback initiateHandshakeCallback,
-                               DeviceID deviceID, bool connState);
 
     /// MCTP Configuration to store message type and vendor defined properties
     MCTPConfiguration config{};

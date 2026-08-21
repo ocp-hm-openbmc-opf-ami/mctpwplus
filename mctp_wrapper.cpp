@@ -1,5 +1,5 @@
 /*
-// Copyright (c) 2021 Intel Corporation
+// Copyright (c) 2021-2025 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -240,6 +240,13 @@ std::pair<boost::system::error_code, int>
                            const bool tagOwner, const ByteArray& request)
 {
     return pimpl->sendYield(yield, extendedEID, msgTag, tagOwner, request);
+}
+
+std::pair<boost::system::error_code, int>
+    MCTPWrapper::sendBlocked(const DeviceID extendedEID, const uint8_t msgTag,
+                             const bool tagOwner, const ByteArray& request)
+{
+    return pimpl->sendBlocked(extendedEID, msgTag, tagOwner, request);
 }
 
 const MCTPWrapper::EndpointMapExtended& MCTPWrapper::getEndpointMapExtended()

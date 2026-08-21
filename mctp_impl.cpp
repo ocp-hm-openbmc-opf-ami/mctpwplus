@@ -1,5 +1,5 @@
 /*
-// Copyright (c) 2021 Intel Corporation
+// Copyright (c) 2021-2025 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -688,6 +688,42 @@ std::pair<boost::system::error_code, int>
         devID.mctpEID(), msgTag, tagOwner, request);
 
     return std::make_pair(ec, status);
+}
+
+std::pair<boost::system::error_code, int>
+    MCTPImpl::sendBlocked(DeviceID devID, uint8_t msgTag, bool tagOwner,
+                          const ByteArray& request)
+{
+    auto it = this->endpointMap.find(devID);
+    if (this->endpointMap.end() == it)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            "sendBlocked: Eid not found in endpoint map",
+            phosphor::logging::entry("EID=%d", devID.id));
+        return std::make_pair(
+            boost::system::errc::make_error_code(boost::system::errc::io_error),
+            -1);
+    }
+
+    try
+    {
+        int status = mctpw::methodCall<int>(
+            *connection, it->second.c_str(), "/xyz/openbmc_project/mctp",
+            "xyz.openbmc_project.MCTP.Base", "SendMctpMessagePayload",
+            devID.mctpEID(), msgTag, tagOwner, request);
+        return std::make_pair(
+            boost::system::errc::make_error_code(boost::system::errc::success),
+            status);
+    }
+    catch (const sdbusplus::exception::SdBusError& sdbusError)
+    {
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            "SendBlocked: Error in method call ",
+            phosphor::logging::entry("EID=%d", devID.id));
+        return std::make_pair(
+            boost::system::errc::make_error_code(boost::system::errc::io_error),
+            -1);
+    }
 }
 
 void MCTPImpl::addToEidMap(boost::asio::yield_context yield,

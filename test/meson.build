@@ -1,3 +1,4 @@
+cmake = import('cmake')
 gtest_dep = dependency('gtest', required: false)
 if not gtest_dep.found()
     gtest_subproject = cmake.subproject('gtest')

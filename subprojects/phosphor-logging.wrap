@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/openbmc/phosphor-logging.git
-revision = HEAD
+revision = 0003c5f4bad3ccc70627993bcff59b396ef14fac
 
 [provide]
 phosphor-logging = phosphor_logging_dep
