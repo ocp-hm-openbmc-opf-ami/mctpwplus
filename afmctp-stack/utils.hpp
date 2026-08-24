@@ -16,12 +16,34 @@
 
 #pragma once
 
+#include <unistd.h>
+
 #include <boost/asio/spawn.hpp>
 #include <expected>
 #include <sdbusplus/asio/connection.hpp>
 
 namespace mctpw
 {
+
+class ScopedFD
+{
+  public:
+    explicit constexpr ScopedFD(int fd) : fd(fd)
+    {
+    }
+    ~ScopedFD()
+    {
+        if (fd >= 0)
+        {
+            close(fd);
+        }
+    }
+    ScopedFD(const ScopedFD&) = delete;
+    ScopedFD& operator=(const ScopedFD&) = delete;
+
+  private:
+    int fd = -1;
+};
 
 template <typename ReturnT, typename... Args>
 ReturnT methodCall(sdbusplus::asio::connection& connection,

@@ -21,7 +21,7 @@
 #include <sys/socket.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/container/flat_map.hpp>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <phosphor-logging/log.hpp>
@@ -102,7 +102,19 @@ bool MCTPImpl::eligibleForReconfigurationCallback(const EndpointInfo& epInfo)
         {
             if (static_cast<MessageType>(epMsgType) == config.type)
             {
-                messageTypeMatched = true;
+                if (config.type == MessageType::vdpci &&
+                    config.vendorMessageType.has_value())
+                {
+                    auto vdmTypes = epInfo.getVDMTypes();
+                    messageTypeMatched =
+                        std::find(vdmTypes.begin(), vdmTypes.end(),
+                                  config.vendorMessageType->cmdSetType()) !=
+                        vdmTypes.end();
+                }
+                else
+                {
+                    messageTypeMatched = true;
+                }
                 break;
             }
         }
@@ -112,7 +124,7 @@ bool MCTPImpl::eligibleForReconfigurationCallback(const EndpointInfo& epInfo)
         return false;
     }
     if (config.bindingType == BindingType::mctpOverAny ||
-        estimateBindingType(epInfo) == config.bindingType)
+        estimateBindingType(epInfo.devID.networkId()) == config.bindingType)
     {
         return true;
     }
@@ -178,158 +190,156 @@ void MCTPImpl::setupEndpoints(std::optional<boost::asio::yield_context> yield)
         sdbusplus::message::object_path,
         DictType<std::string, DictType<std::string, MctpPropertiesVariantType>>>
         values;
-    auto getManagedObjects = mctpw::methodCall<decltype(values)>(
-        *connection, ccMctpService, "/au/com/codeconstruct/mctp1",
-        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", yield);
-    if (getManagedObjects)
-    {
-        values = getManagedObjects.value();
-    }
-    else
-    {
-        phosphor::logging::log<phosphor::logging::level::WARNING>(
-            (std::string("Error getting managed objects on ") + ccMctpService +
-             " Bus ")
-                .c_str());
-        return;
-    }
-    for (const auto& [objectPath, dbusInterfaces] : values)
-    {
-        if (objectPath.str.starts_with("/au/com/codeconstruct/mctp1/networks"))
-        {
-            handleEndpointAddition(objectPath.str, dbusInterfaces);
-        }
-        else if (objectPath.str.starts_with(
-                     "/au/com/codeconstruct/mctp1/interfaces"))
-        {
-            handleIfaceAddition(objectPath.str, dbusInterfaces);
-        }
-        else
-        {
-            phosphor::logging::log<phosphor::logging::level::INFO>(
-                (std::string("Interface ") + objectPath.str +
-                 " addition not handelled")
-                    .c_str());
-        }
-    }
     try
     {
-        getManagedObjects = mctpw::methodCall<decltype(values)>(
-            *connection, spdmService, "/", "org.freedesktop.DBus.ObjectManager",
-            "GetManagedObjects", yield);
+        auto getManagedObjects = mctpw::methodCall<decltype(values)>(
+            *connection, ccMctpService, "/au/com/codeconstruct/mctp1",
+            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", yield);
         if (getManagedObjects)
         {
             values = getManagedObjects.value();
         }
         else
         {
-            phosphor::logging::log<phosphor::logging::level::WARNING>(
-                (std::string("No manager objects read from ") + spdmService +
-                 " Bus ")
-                    .c_str());
-            return;
+            throw std::runtime_error("No managed objects read from " +
+                                     ccMctpService + " Bus ");
+        }
+        for (const auto& [objectPath, dbusInterfaces] : values)
+        {
+            if (objectPath.str.starts_with(
+                    "/au/com/codeconstruct/mctp1/networks"))
+            {
+                handleEndpointAddition(objectPath.str, dbusInterfaces);
+            }
+            else if (objectPath.str.starts_with(
+                         "/au/com/codeconstruct/mctp1/interfaces"))
+            {
+                handleIfaceAddition(objectPath.str, dbusInterfaces);
+            }
+            else
+            {
+                phosphor::logging::log<phosphor::logging::level::INFO>(
+                    (std::string("Interface ") + objectPath.str +
+                     " addition not handelled")
+                        .c_str());
+            }
         }
     }
     catch (const std::exception& e)
     {
         phosphor::logging::log<phosphor::logging::level::WARNING>(
-            (std::string("Error getting managed objects on ") + spdmService +
+            (std::string("Error getting managed objects on ") + ccMctpService +
              " Bus ")
                 .c_str());
-        return;
     }
-    for (const auto& [objectPath, dbusInterfaces] : values)
-    {
-        if (objectPath.str.starts_with(
-                "/com/intel/spdmd_secure_session/networks"))
-        {
-            handleSPDMEndpointAddition(objectPath.str, dbusInterfaces);
-        }
-    }
+}
+
+static sockaddr_mctp createMCTPSockAddr(DeviceID devID, MessageType msgType)
+{
+    struct sockaddr_mctp addr{0};
+    addr.smctp_family = AF_MCTP;
+    addr.smctp_network = devID.networkId();
+    addr.smctp_addr.s_addr = devID.mctpEID();
+    addr.smctp_type = static_cast<uint8_t>(msgType);
+    addr.smctp_tag = MCTP_TAG_OWNER;
+    return addr;
 }
 
 void MCTPImpl::sendReceiveAsync(ReceiveCallback callback, DeviceID devID,
                                 const ByteArray& request,
                                 std::chrono::milliseconds timeout)
 {
-    if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
-    {
-        connection->async_method_call(
-            [callback, msgType = request[0]](boost::system::error_code ec,
-                                             ByteArray& recvData) {
-                ByteArray resp;
-                resp.push_back(msgType);
-                resp.insert(resp.end(), recvData.begin(), recvData.end());
-                callback(ec, resp);
-            },
-            spdmService, "/com/intel/spdmd_secure_session/transport",
-            "xyz.openbmc_project.mctp", "SendReceiveMessage", devID.mctpEID(),
-            devID.networkId(), request[0],
-            ByteArray(request.begin() + 1, request.end()),
-            static_cast<uint16_t>(timeout.count()));
-        return;
-    }
-    struct sockaddr_mctp addr{0};
-    addr.smctp_family = AF_MCTP;
-    addr.smctp_network = devID.networkId();
-    addr.smctp_addr.s_addr = devID.mctpEID();
-    addr.smctp_type = request[0];
-    addr.smctp_tag = MCTP_TAG_OWNER;
-    boost::asio::generic::datagram_protocol::endpoint sendEndPoint{
-        &addr, sizeof(addr)};
+    sockaddr_mctp addr =
+        createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
+    datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
+    auto sock = std::make_shared<datagram::socket>(connection->get_io_context(),
+                                                   datagram{AF_MCTP, 0});
 
-    auto sock =
-        std::make_shared<boost::asio::generic::datagram_protocol::socket>(
-            connection->get_io_context(),
-            boost::asio::generic::datagram_protocol{AF_MCTP, 0});
-    sock->async_send_to(
-        boost::asio::const_buffer(request.data() + 1, request.size() - 1),
-        sendEndPoint,
-        [sock, callback, this, timeout](boost::system::error_code ec,
-                                        int status) {
+    auto task = [sock, callback, this, timeout](boost::system::error_code ec,
+                                                int status) {
+        if (ec)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendReceiveAsync: send failed: ") + ec.message() +
+                 " (errno: " + std::to_string(errno) + ")")
+                    .c_str());
+            ByteArray resp;
+            callback(ec, resp);
+            return;
+        }
+        auto waitTimer = std::make_shared<boost::asio::steady_timer>(
+            connection->get_io_context());
+        waitTimer->expires_after(timeout);
+        waitTimer->async_wait([sock](const boost::system::error_code& ec) {
             if (ec)
             {
-                ByteArray resp;
-                callback(ec, resp);
                 return;
             }
-            auto waitTimer = std::make_shared<boost::asio::steady_timer>(
-                connection->get_io_context());
-            waitTimer->expires_after(timeout);
-            waitTimer->async_wait([sock](const boost::system::error_code& ec) {
+            sock->cancel();
+        });
+        sock->async_wait(
+            datagram::socket::wait_read,
+            [sock, callback, waitTimer, this](boost::system::error_code ec) {
                 if (ec)
                 {
-                    return;
-                }
-                sock->cancel();
-            });
-            sock->async_wait(
-                boost::asio::generic::datagram_protocol::socket::wait_read,
-                [sock, callback, waitTimer,
-                 this](boost::system::error_code ec) {
-                    if (ec)
+                    if (ec == boost::asio::error::operation_aborted)
                     {
+                        // Socket was cancelled due to timeout
+                        phosphor::logging::log<phosphor::logging::level::ERR>(
+                            "sendReceiveAsync: Operation timed out");
+                        ByteArray resp;
+                        callback(boost::system::errc::make_error_code(
+                                     boost::system::errc::timed_out),
+                                 resp);
+                    }
+                    else
+                    {
+                        phosphor::logging::log<phosphor::logging::level::ERR>(
+                            (std::string("sendReceiveAsync: receive failed: ") +
+                             ec.message() +
+                             " (errno: " + std::to_string(errno) + ")")
+                                .c_str());
                         ByteArray resp;
                         callback(ec, resp);
-                        return;
                     }
-                    int sd = sock->native_handle();
-                    int readLen =
-                        recvfrom(sd, NULL, 0, MSG_PEEK | MSG_TRUNC, NULL, 0);
-                    std::vector<uint8_t> recvData(readLen + 1);
-                    struct sockaddr_mctp addr{0};
-                    boost::asio::generic::datagram_protocol::endpoint
-                        recvEndPoint{&addr, sizeof(addr)};
-                    std::size_t recvSize = sock->receive_from(
-                        boost::asio::mutable_buffer(recvData.data() + 1,
-                                                    recvData.size() - 1),
-                        recvEndPoint);
-                    recvData[0] = addr.smctp_type;
-                    callback(boost::system::errc::make_error_code(
-                                 boost::system::errc::success),
-                             recvData);
-                });
-        });
+                    return;
+                }
+                int sd = sock->native_handle();
+                int readLen =
+                    recvfrom(sd, NULL, 0, MSG_PEEK | MSG_TRUNC, NULL, 0);
+                if (readLen < 0)
+                {
+                    const int recvErrno = errno;
+                    boost::system::error_code receiveEc =
+                        boost::system::errc::make_error_code(
+                            static_cast<boost::system::errc::errc_t>(
+                                recvErrno));
+                    phosphor::logging::log<phosphor::logging::level::ERR>(
+                        (std::string("sendReceiveAsync: recvfrom() failed: ") +
+                         receiveEc.message() +
+                         " (errno: " + std::to_string(recvErrno) + ")")
+                            .c_str());
+                    ByteArray resp;
+                    callback(receiveEc, resp);
+                    return;
+                }
+                std::vector<uint8_t> recvData(readLen + 1);
+                struct sockaddr_mctp addr{0};
+                datagram::endpoint recvEndPoint{&addr, sizeof(addr)};
+                std::size_t recvSize = sock->receive_from(
+                    boost::asio::mutable_buffer(recvData.data() + 1,
+                                                recvData.size() - 1),
+                    recvEndPoint);
+                recvData[0] = addr.smctp_type;
+                callback(boost::system::errc::make_error_code(
+                             boost::system::errc::success),
+                         recvData);
+            });
+    };
+    sock->async_send_to(
+        boost::asio::const_buffer(request.data() + 1, request.size() - 1),
+        sendEndPoint, task);
+    // sock will be kept in scope by lambda capture
 }
 
 std::pair<boost::system::error_code, ByteArray>
@@ -337,93 +347,110 @@ std::pair<boost::system::error_code, ByteArray>
                                const ByteArray& request,
                                std::chrono::milliseconds timeout)
 {
-    auto receiveResult = std::make_pair(
-        boost::system::errc::make_error_code(boost::system::errc::io_error),
-        ByteArray());
-    if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
+    struct HeapData
     {
-        auto recvData = connection->yield_method_call<ByteArray>(
-            yield, receiveResult.first, spdmService,
-            "/com/intel/spdmd_secure_session/transport",
-            "xyz.openbmc_project.mctp", "SendReceiveMessage", devID.mctpEID(),
-            devID.networkId(), request[0],
-            ByteArray(request.begin() + 1, request.end()),
-            static_cast<uint16_t>(timeout.count()));
-        receiveResult.second.push_back(request[0]);
-        receiveResult.second.insert(receiveResult.second.end(),
-                                    recvData.begin(), recvData.end());
-        return receiveResult;
-    }
-    boost::asio::steady_timer waitTimer(connection->get_io_context());
-    boost::system::error_code ec;
-    boost::asio::generic::datagram_protocol::socket sock(
-        yield.get_executor(),
-        boost::asio::generic::datagram_protocol{AF_MCTP, 0});
-    struct sockaddr_mctp addr{0};
-    addr.smctp_family = AF_MCTP;
-    addr.smctp_network = devID.networkId();
-    addr.smctp_addr.s_addr = devID.mctpEID();
-    addr.smctp_type = request[0];
-    addr.smctp_tag = MCTP_TAG_OWNER;
-    boost::asio::generic::datagram_protocol::endpoint sendEndPoint{
-        &addr, sizeof(addr)};
-    auto send_count = sock.send_to(
+        std::pair<boost::system::error_code, ByteArray> receiveResult;
+        sockaddr_mctp addr;
+        std::shared_ptr<datagram::socket> sock;
+        ByteArray request;
+        std::shared_ptr<boost::asio::steady_timer> waitTimer;
+    };
+
+    auto heapData = std::make_shared<HeapData>();
+    heapData->request = request;
+
+    heapData->sock = std::make_shared<datagram::socket>(
+        connection->get_io_context(), datagram{AF_MCTP, 0});
+
+    sockaddr_mctp addr =
+        createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
+    heapData->addr = addr;
+    datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
+
+    auto sendCount = heapData->sock->async_send_to(
         boost::asio::const_buffer(request.data() + 1, request.size() - 1),
-        sendEndPoint);
-    waitTimer.expires_after(timeout);
-    waitTimer.async_wait([&sock, &devID](const boost::system::error_code& ec) {
-        if (ec == boost::asio::error::operation_aborted)
+        sendEndPoint, yield[heapData->receiveResult.first]);
+    if (sendCount != (request.size() - 1))
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            ("sendReceiveYield: send failed " + std::to_string(sendCount))
+                .c_str());
+        return heapData->receiveResult;
+    }
+
+    heapData->waitTimer = std::make_shared<boost::asio::steady_timer>(
+        connection->get_io_context());
+    heapData->waitTimer->expires_after(timeout);
+    const int dupFd = ::dup(heapData->sock->native_handle());
+    if (dupFd < 0)
+    {
+        heapData->receiveResult.first =
+            boost::system::error_code(errno, boost::system::generic_category());
+        return heapData->receiveResult;
+    }
+
+    boost::asio::posix::stream_descriptor sd(connection->get_io_context());
+    boost::system::error_code dupEc;
+    sd.assign(dupFd, dupEc);
+    if (dupEc)
+    {
+        ::close(dupFd);
+        heapData->receiveResult.first = dupEc;
+        return heapData->receiveResult;
+    }
+
+    auto task = [this, heapData](const boost::system::error_code& ec) {
+        if (ec)
         {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendReceiveYield: Error while socket wait: ") +
+                 ec.message() + " (errno: " + std::to_string(errno) + ")")
+                    .c_str());
+            heapData->receiveResult.first = ec;
+            heapData->waitTimer->cancel();
             return;
         }
-        phosphor::logging::log<phosphor::logging::level::ERR>(
-            (std::string("SendReceiveYield:  timed out on receive") +
-             " network id :" +
-             std::to_string(static_cast<int>(devID.networkId())) +
-             ", endpoint id :" +
-             std::to_string(static_cast<int>(devID.mctpEID())))
-                .c_str());
-        sock.cancel();
-    });
-    sock.async_wait(boost::asio::generic::datagram_protocol::socket::wait_read,
-                    yield[ec]);
-    if (ec)
+        // No need to use async_read(yield[]) APIs because data is ready to read
+        int readLen = recvfrom(heapData->sock->native_handle(), NULL, 0,
+                               MSG_PEEK | MSG_TRUNC, NULL, 0);
+        if (readLen < 0)
+        {
+            boost::system::error_code receiveEc =
+                boost::system::errc::make_error_code(
+                    static_cast<boost::system::errc::errc_t>(errno));
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendReceiveYield: recvfrom() failed: ") +
+                 receiveEc.message() + " (errno: " + std::to_string(errno) +
+                 ")")
+                    .c_str());
+            heapData->receiveResult.first = receiveEc;
+            heapData->waitTimer->cancel();
+            return;
+        }
+        std::vector<uint8_t> recvData(readLen);
+        sockaddr_mctp addr{0};
+        datagram::endpoint recvEndPoint{&addr, sizeof(addr)};
+        std::size_t recvSize = heapData->sock->receive_from(
+            boost::asio::mutable_buffer(recvData.data(), recvData.size()),
+            recvEndPoint);
+        heapData->receiveResult.second.push_back(heapData->request[0]);
+        heapData->receiveResult.second.insert(
+            heapData->receiveResult.second.end(), recvData.begin(),
+            recvData.begin() + recvSize);
+        heapData->receiveResult.first =
+            boost::system::errc::make_error_code(boost::system::errc::success);
+        heapData->waitTimer->cancel();
+    };
+
+    sd.async_wait(boost::asio::posix::stream_descriptor::wait_read, task);
+    boost::system::error_code ec;
+    heapData->waitTimer->async_wait(yield[ec]);
+    if (!ec)
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
-            (std::string("SendReceiveYield:  Error on wait") + "network id :" +
-             std::to_string(static_cast<int>(devID.networkId())) +
-             ", endpoint id :" +
-             std::to_string(static_cast<int>(devID.mctpEID())))
-                .c_str());
-        receiveResult.first = ec;
-        return receiveResult;
+        heapData->receiveResult.first = boost::system::errc::make_error_code(
+            boost::system::errc::timed_out);
     }
-    else
-    {
-        waitTimer.cancel();
-    }
-    int readLen =
-        recvfrom(sock.native_handle(), NULL, 0, MSG_PEEK | MSG_TRUNC, NULL, 0);
-    if (readLen < 0)
-    {
-        readLen = 256;
-        std::string warnMsg =
-            std::string("Failed to determine read length, Assuming 256");
-        phosphor::logging::log<phosphor::logging::level::WARNING>(
-            warnMsg.c_str());
-    }
-    std::vector<uint8_t> recvData(readLen);
-    boost::asio::generic::datagram_protocol::endpoint recvEndPoint{
-        &addr, sizeof(addr)};
-    std::size_t recvSize = sock.receive_from(
-        boost::asio::mutable_buffer(recvData.data(), recvData.size()),
-        recvEndPoint);
-    receiveResult.first =
-        boost::system::errc::make_error_code(boost::system::errc::success);
-    receiveResult.second.push_back(request[0]);
-    receiveResult.second.insert(receiveResult.second.end(), recvData.begin(),
-                                recvData.begin() + recvSize);
-    return receiveResult;
+    return heapData->receiveResult;
 }
 
 boost::system::error_code
@@ -441,19 +468,55 @@ boost::system::error_code MCTPImpl::registerResponder(
         return boost::system::errc::make_error_code(
             boost::system::errc::io_error);
     }
+
+    static const std::string registerTypeSupport = "RegisterTypeSupport";
+    static const std::string registerVDMTypeSupport = "RegisterVDMTypeSupport";
+    std::string methodName = registerTypeSupport;
+    bool isVDM =
+        config.type == MessageType::vdpci || config.type == MessageType::vdiana;
+    if (isVDM)
+    {
+        if (!config.vendorMessageType.has_value() ||
+            !config.vendorId.has_value())
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                "Vendor message type not set for VDM registration");
+            return boost::system::errc::make_error_code(
+                boost::system::errc::io_error);
+        }
+        methodName = registerVDMTypeSupport;
+    }
+
     auto msg = connection->new_method_call(
         "au.com.codeconstruct.MCTP1", "/au/com/codeconstruct/mctp1",
-        "au.com.codeconstruct.MCTP1", "RegisterTypeSupport");
-    msg.append(static_cast<uint8_t>(config.type));
+        "au.com.codeconstruct.MCTP1", methodName.c_str());
 
-    std::vector<uint32_t> versionArr(responderVersions.size());
-    for (std::size_t i = 0; i < responderVersions.size(); i++)
+    if (isVDM)
     {
-        VersionFields version = responderVersions[i];
-        uint32_t* ptr = reinterpret_cast<uint32_t*>(&version);
-        versionArr[i] = *ptr;
+        uint8_t vidFormat = config.type == MessageType::vdpci ? 0x00 : 0x01;
+        std::variant<uint16_t> vendorId =
+            static_cast<uint16_t>(config.vendorId.value_or(0x8086));
+        uint16_t cmdSet = config.vendorMessageType.value().cmdSetType();
+        phosphor::logging::log<phosphor::logging::level::INFO>(
+            (std::string("Registering VDM responder with vid format ") +
+             std::to_string(vidFormat) + " cmdSet " + std::to_string(cmdSet))
+                .c_str());
+        msg.append(vidFormat, vendorId, cmdSet);
     }
-    msg.append(versionArr);
+    else
+    {
+        msg.append(static_cast<uint8_t>(config.type));
+
+        std::vector<uint32_t> versionArr(responderVersions.size());
+        for (std::size_t i = 0; i < responderVersions.size(); i++)
+        {
+            VersionFields version = responderVersions[i];
+            uint32_t* ptr = reinterpret_cast<uint32_t*>(&version);
+            versionArr[i] = *ptr;
+        }
+        msg.append(versionArr);
+    }
+
     try
     {
         connection->call(msg);
@@ -476,137 +539,186 @@ std::pair<boost::system::error_code, ByteArray>
     auto receiveResult = std::make_pair(
         boost::system::errc::make_error_code(boost::system::errc::io_error),
         ByteArray());
-    if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
-    {
-        ByteArray recvData = mctpw::methodCall<decltype(recvData)>(
-            *connection, spdmService,
-            "/com/intel/spdmd_secure_session/transport/",
-            "xyz.openbmc_project.mctp", "SendReceiveMessage", devID.mctpEID(),
-            devID.networkId(), request[0],
-            ByteArray(request.begin() + 1, request.end()),
-            static_cast<uint16_t>(timeout.count()));
-        if (recvData.size() > 0)
-        {
-            receiveResult.second.push_back(request[0]);
-            receiveResult.second.insert(receiveResult.second.end(),
-                                        recvData.begin(), recvData.end());
-            receiveResult.first = boost::system::errc::make_error_code(
-                boost::system::errc::success);
-        }
-        return receiveResult;
-    }
     boost::system::error_code ec;
-    boost::asio::io_context ioc;
-    boost::asio::generic::datagram_protocol::socket sock(
-        ioc, boost::asio::generic::datagram_protocol{AF_MCTP, 0});
+    socklen_t addrlen;
     struct sockaddr_mctp addr{0};
     addr.smctp_family = AF_MCTP;
     addr.smctp_network = devID.networkId();
     addr.smctp_addr.s_addr = devID.mctpEID();
     addr.smctp_type = request[0];
     addr.smctp_tag = MCTP_TAG_OWNER;
-    boost::asio::generic::datagram_protocol::endpoint sendEndPoint{
-        &addr, sizeof(addr)};
-    std::size_t send_rc = sock.send_to(
-        boost::asio::const_buffer(request.data() + 1, request.size() - 1),
-        sendEndPoint);
-    if (send_rc != request.size() - 1)
+    try
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
-            "send failed with error");
-        return receiveResult;
-    }
-    bool timedOut = false;
-    boost::asio::steady_timer waitTimer(ioc);
-    waitTimer.expires_after(timeout);
-    waitTimer.async_wait([&sock](const boost::system::error_code& ec) {
-        if (ec == boost::asio::error::operation_aborted)
+        int socketFD = socket(AF_MCTP, SOCK_DGRAM, 0);
+        if (socketFD < 0)
         {
-            return;
+            int socketErrno = errno;
+            std::string errorMsg =
+                "sendReceiveBlocked: Failed to create socket: " +
+                std::string(strerror(socketErrno)) +
+                " (errno: " + std::to_string(socketErrno) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(socketErrno));
+            return receiveResult;
         }
-        // timed out
-        sock.cancel();
-    });
-    sock.async_wait(
-        boost::asio::generic::datagram_protocol::socket::wait_read,
-        [&waitTimer, &timedOut](const boost::system::error_code& ec) {
-            if (ec == boost::asio::error::operation_aborted)
-            {
-                timedOut = true;
-            }
-            else
-            {
-                timedOut = false;
-                waitTimer.cancel();
-            }
-        });
-    int sockFd = sock.native_handle();
-    ioc.run();
-    if (timedOut)
-    {
+        ScopedFD scopedSocketFD(socketFD);
+
+        // Convert std::chrono::milliseconds to struct timeval
+        struct timeval tv;
+        auto timeoutSec =
+            std::chrono::duration_cast<std::chrono::seconds>(timeout);
+        auto timeoutUsec =
+            std::chrono::duration_cast<std::chrono::microseconds>(timeout -
+                                                                  timeoutSec);
+
+        tv.tv_sec = timeoutSec.count();
+        tv.tv_usec = timeoutUsec.count();
+
+        // Use select() for timeout handling
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(socketFD, &readfds);
+
+        ssize_t rc =
+            sendto(socketFD, reinterpret_cast<const void*>(request.data() + 1),
+                   request.size() - 1, 0,
+                   reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
+        if (rc != (request.size() - 1))
+        {
+            int sendErrno = errno;
+            std::string errorMsg =
+                "sendReceiveBlocked: sendto sent incomplete data: " +
+                std::string(strerror(sendErrno)) +
+                " (errno: " + std::to_string(sendErrno) +
+                ", sent: " + std::to_string(rc) +
+                ", expected: " + std::to_string(request.size() - 1) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(sendErrno));
+            return receiveResult;
+        }
+
+        int selectResult = select(socketFD + 1, &readfds, NULL, NULL, &tv);
+        if (selectResult < 0)
+        {
+            int selectErrno = errno;
+            std::string errorMsg = "sendReceiveBlocked: select() failed: " +
+                                   std::string(strerror(selectErrno)) +
+                                   " (errno: " + std::to_string(selectErrno) +
+                                   ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(selectErrno));
+            return receiveResult;
+        }
+        else if (selectResult == 0)
+        {
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                "sendReceiveBlocked: receive timed out");
+            receiveResult.first = boost::system::errc::make_error_code(
+                boost::system::errc::timed_out);
+            return receiveResult;
+        }
+
+        int readLen =
+            recvfrom(socketFD, NULL, 0, MSG_PEEK | MSG_TRUNC, NULL, 0);
+        if (readLen <= 0)
+        {
+            int recvErrno = errno;
+            std::string errorMsg =
+                "sendReceiveBlocked: Failed to determine read length: " +
+                std::string(strerror(recvErrno)) +
+                " (errno: " + std::to_string(recvErrno) +
+                ", readLen: " + std::to_string(readLen) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(recvErrno));
+            return receiveResult;
+        }
+
+        std::vector<uint8_t> recvData(readLen);
+        rc = recvfrom(socketFD, reinterpret_cast<void*>(recvData.data()),
+                      recvData.size(), MSG_TRUNC,
+                      reinterpret_cast<struct sockaddr*>(&addr), &addrlen);
+        if (rc < 0)
+        {
+            int recvErrno = errno;
+            std::string errorMsg = "sendReceiveBlocked:recvfrom failed: " +
+                                   std::string(strerror(recvErrno)) +
+                                   " (errno: " + std::to_string(recvErrno) +
+                                   ", readLen: " + std::to_string(readLen) +
+                                   ", rc: " + std::to_string(rc) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            receiveResult.first = boost::system::errc::make_error_code(
+                static_cast<boost::system::errc::errc_t>(recvErrno));
+            return receiveResult;
+        }
+
+        receiveResult.first =
+            boost::system::errc::make_error_code(boost::system::errc::success);
+        receiveResult.second.push_back(request[0]);
+        receiveResult.second.insert(receiveResult.second.end(),
+                                    recvData.begin(), recvData.begin() + rc);
         return receiveResult;
     }
-    int readLen = recvfrom(sockFd, NULL, 0, MSG_PEEK | MSG_TRUNC, NULL, 0);
-    if (readLen < 0)
+    catch (const std::exception& e)
     {
-        readLen = 256;
         std::string warnMsg =
-            std::string("Failed to determine read length, Assuming 256");
-        phosphor::logging::log<phosphor::logging::level::WARNING>(
-            warnMsg.c_str());
+            std::string("sendReceiveBlocked exception: ") + e.what();
+        phosphor::logging::log<phosphor::logging::level::ERR>(warnMsg.c_str());
+        // For unexpected exceptions, use io_error as fallback
+        receiveResult.first =
+            boost::system::errc::make_error_code(boost::system::errc::io_error);
         return receiveResult;
     }
-    std::vector<uint8_t> recvData(readLen);
-    socklen_t addrlen;
-    int rc = recvfrom(sockFd, recvData.data(), readLen, MSG_TRUNC,
-                      (struct sockaddr*)&addr, &addrlen);
-    if (rc != readLen)
-    {
-        return receiveResult;
-    }
-    receiveResult.first =
-        boost::system::errc::make_error_code(boost::system::errc::success);
-    receiveResult.second.push_back(request[0]);
-    receiveResult.second.insert(receiveResult.second.end(), recvData.begin(),
-                                recvData.begin() + readLen);
-    return receiveResult;
 }
 
 void MCTPImpl::sendAsync(const SendCallback& callback, const DeviceID devID,
                          const uint8_t msgTag, const bool tagOwner,
                          const ByteArray& request)
 {
-    if (tagOwner)
-    {
-        throw std::runtime_error(
-            "Can not be tag owner with predefined tag value");
-    }
-    if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
-    {
-        connection->async_method_call(
-            [callback](boost::system::error_code ec, int rc) {
-                callback(ec, rc + 1);
-            },
-            spdmService, "/com/intel/spdmd_secure_session/transport",
-            "xyz.openbmc_project.mctp", "SendMessage", devID.mctpEID(),
-            devID.networkId(), msgTag, request[0],
-            ByteArray(request.begin() + 1, request.end()));
-        return;
-    }
-    struct sockaddr_mctp addr{0};
-    addr.smctp_family = AF_MCTP;
-    addr.smctp_network = devID.networkId();
-    addr.smctp_addr.s_addr = devID.mctpEID();
-    addr.smctp_type = request[0];
-    addr.smctp_tag = msgTag;
-    boost::asio::generic::datagram_protocol::endpoint sendEndPoint{
-        &addr, sizeof(addr)};
-    boost::asio::generic::datagram_protocol::socket sock(
-        connection->get_io_context(),
-        boost::asio::generic::datagram_protocol{AF_MCTP, 0});
-    sock.async_send_to(
-        boost::asio::const_buffer(request.data() + 1, request.size() - 1),
-        sendEndPoint, callback);
+    sockaddr_mctp addr =
+        createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
+    addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
+
+    datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
+    auto sock = std::make_shared<datagram::socket>(connection->get_io_context(),
+                                                   datagram{AF_MCTP, 0});
+
+    auto reqCopy = std::make_shared<ByteArray>(request);
+    auto newCB = [reqCopy, callback, sock](boost::system::error_code ec,
+                                           std::size_t bytesSent) {
+        int status = -1;
+        if (ec)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendAsync: Send failed: ") + ec.message())
+                    .c_str());
+        }
+        if (bytesSent != (reqCopy->size() - 1))
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendAsync: Send incomplete: ") +
+                 std::to_string(bytesSent) + " expected " +
+                 std::to_string(reqCopy->size()))
+                    .c_str());
+        }
+        if (!ec && (bytesSent == (reqCopy->size() - 1)))
+        {
+            status = 0;
+        }
+
+        callback(ec, status);
+    };
+    sock->async_send_to(
+        boost::asio::const_buffer(reqCopy->data() + 1, reqCopy->size() - 1),
+        sendEndPoint, newCB);
 }
 
 std::pair<boost::system::error_code, int>
@@ -614,50 +726,116 @@ std::pair<boost::system::error_code, int>
                         const uint8_t msgTag, const bool tagOwner,
                         const ByteArray& request)
 {
-    if (tagOwner)
+    try
     {
-        throw std::runtime_error(
-            "Can not be tag owner with predefined tag value");
-    }
-    if (allEndpoints.contains(devID) && allEndpoints.at(devID).routeViaSPDM())
-    {
-        boost::system::error_code ec =
-            boost::system::errc::make_error_code(boost::system::errc::success);
-        int status = connection->yield_method_call<int>(
-            yield, ec, spdmService, "/com/intel/spdmd_secure_session/transport",
-            "xyz.openbmc_project.mctp", "SendMessage", devID.mctpEID(),
-            devID.networkId(), msgTag, request[0],
-            ByteArray(request.begin() + 1, request.end()));
+        sockaddr_mctp addr =
+            createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
+        addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
+        datagram::endpoint sendEndPoint{&addr, sizeof(addr)};
+        datagram::socket sock(connection->get_io_context(),
+                              datagram{AF_MCTP, 0});
+        boost::system::error_code ec;
+        auto bytesSent = sock.async_send_to(
+            boost::asio::const_buffer(request.data() + 1, request.size() - 1),
+            sendEndPoint, yield[ec]);
+        int status = 0;
+        if (ec)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendYield: Send failed: ") + ec.message())
+                    .c_str());
+            status = -1;
+        }
+        else if (bytesSent != (request.size() - 1))
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                (std::string("sendYield: Send incomplete: sent ") +
+                 std::to_string(bytesSent) + ", expected " +
+                 std::to_string(request.size() - 1) +
+                 " (errno: " + std::to_string(errno) + ")")
+                    .c_str());
+            status = -1;
+            ec = boost::system::errc::make_error_code(
+                boost::system::errc::io_error);
+        }
         return std::make_pair(ec, status);
     }
-    struct sockaddr_mctp addr{0};
-    addr.smctp_family = AF_MCTP;
-    addr.smctp_network = devID.networkId();
-    addr.smctp_addr.s_addr = devID.mctpEID();
-    addr.smctp_type = request[0];
-    addr.smctp_tag = msgTag;
-    boost::asio::generic::datagram_protocol::endpoint sendEndPoint{
-        &addr, sizeof(addr)};
-    boost::asio::generic::datagram_protocol::socket sock(
-        connection->get_io_context(),
-        boost::asio::generic::datagram_protocol{AF_MCTP, 0});
-    boost::system::error_code ec;
-    sock.async_send_to(
-        boost::asio::const_buffer(request.data() + 1, request.size() - 1),
-        sendEndPoint, yield[ec]);
-    int status = 0;
-    if (ec)
+    catch (const std::exception& e)
     {
-        status = -1;
+        std::string warnMsg = std::string("sendYield exception: ") + e.what();
+        phosphor::logging::log<phosphor::logging::level::ERR>(warnMsg.c_str());
+        return std::make_pair(
+            boost::system::errc::make_error_code(boost::system::errc::io_error),
+            -1);
     }
-    return std::make_pair(ec, status);
+}
+
+std::pair<boost::system::error_code, int>
+    MCTPImpl::sendBlocked(const DeviceID devID, const uint8_t msgTag,
+                          const bool tagOwner, const ByteArray& request)
+{
+    struct sockaddr_mctp addr =
+        createMCTPSockAddr(devID, static_cast<MessageType>(request[0]));
+    addr.smctp_tag = tagOwner ? MCTP_TAG_OWNER : (msgTag & MCTP_TAG_MASK);
+
+    try
+    {
+        int socketFD = socket(AF_MCTP, SOCK_DGRAM, 0);
+        if (socketFD < 0)
+        {
+            int socketErrno = errno;
+            std::string errorMsg = "sendBlocked: Failed to create socket: " +
+                                   std::string(strerror(socketErrno)) +
+                                   " (errno: " + std::to_string(socketErrno) +
+                                   ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            return std::make_pair(
+                boost::system::errc::make_error_code(
+                    static_cast<boost::system::errc::errc_t>(socketErrno)),
+                -1);
+        }
+        ScopedFD scopedSocketFD(socketFD);
+
+        ssize_t rc =
+            sendto(socketFD, reinterpret_cast<const void*>(request.data() + 1),
+                   request.size() - 1, 0,
+                   reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
+        if (rc != (request.size() - 1))
+        {
+            int sendErrno = errno;
+            std::string errorMsg =
+                "sendBlocked: sendto sent incomplete data: " +
+                std::string(strerror(sendErrno)) +
+                " (errno: " + std::to_string(sendErrno) +
+                ", sent: " + std::to_string(rc) +
+                ", expected: " + std::to_string(request.size() - 1) + ")";
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                errorMsg.c_str());
+            return std::make_pair(
+                boost::system::errc::make_error_code(
+                    static_cast<boost::system::errc::errc_t>(sendErrno)),
+                -1);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::string warnMsg = std::string("sendBlocked exception: ") + e.what();
+        phosphor::logging::log<phosphor::logging::level::ERR>(warnMsg.c_str());
+        return std::make_pair(
+            boost::system::errc::make_error_code(boost::system::errc::io_error),
+            -1);
+    }
+
+    return std::make_pair(
+        boost::system::errc::make_error_code(boost::system::errc::success), 0);
 }
 
 std::optional<std::string>
     MCTPImpl::getDeviceLocation(const DeviceID extendedEID)
 {
     // Implementation is deferred
-    return std::string("A_B_C_D");
+    return std::string("Unknown");
 }
 
 void MCTPImpl::getOwnEIDs(OwnEIDChangeCallback callback)
@@ -698,12 +876,6 @@ void MCTPImpl::setupDbusListener()
         *connection, kMctprule,
         std::bind(&MCTPImpl::onMCTPEvent, this, std::placeholders::_1));
 
-    static const std::string spdmRule =
-        "type='signal',path='/com/intel/spdmd_secure_session'";
-    this->spdmWatch = std::make_unique<sdbusplus::bus::match::match>(
-        *connection, spdmRule,
-        std::bind(&MCTPImpl::onMCTPEvent, this, std::placeholders::_1));
-
     phosphor::logging::log<phosphor::logging::level::INFO>(
         "Wrapper: Listening for all MCTP related signals");
 }
@@ -714,7 +886,7 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
         dbusInterfaces;
     sdbusplus::message::object_path objectPath;
     msg.read(objectPath, dbusInterfaces);
-    phosphor::logging::log<phosphor::logging::level::INFO>(
+    phosphor::logging::log<phosphor::logging::level::DEBUG>(
         (std::string("Interface added on ") + objectPath.str).c_str());
 
     if (objectPath.str.starts_with("/au/com/codeconstruct/mctp1/networks"))
@@ -725,11 +897,6 @@ void MCTPImpl::onNewInterface(sdbusplus::message::message& msg)
                  "/au/com/codeconstruct/mctp1/interfaces"))
     {
         handleIfaceAddition(objectPath.str, dbusInterfaces);
-    }
-    else if (objectPath.str.starts_with(
-                 "/com/intel/spdmd_secure_session/networks"))
-    {
-        handleSPDMEndpointAddition(objectPath.str, dbusInterfaces);
     }
     else
     {
@@ -785,81 +952,6 @@ void MCTPImpl::handleIfaceRemoval(
     ifaceNetworkMap.erase(ifaceName);
 }
 
-void MCTPImpl::handleSPDMEndpointAddition(
-    const std::string objectPath,
-    const DictType<std::string,
-                   DictType<std::string, MctpPropertiesVariantType>>& values)
-{
-    auto optDevID = extractDeviceIDFromObjectPath(objectPath);
-    if (!optDevID.has_value())
-    {
-        phosphor::logging::log<phosphor::logging::level::INFO>(
-            (std::string("Failed to extract SPDM endpoint information from  ") +
-             objectPath)
-                .c_str());
-        return;
-    }
-    DeviceID devID(optDevID.value());
-    if (!allEndpoints.contains(devID))
-    {
-        std::stringstream ss;
-        ss << "Ignoring " << objectPath << " since " << devID
-           << " is not yet signalled by cc mctpd";
-        phosphor::logging::log<phosphor::logging::level::WARNING>(
-            ss.str().c_str());
-        return;
-    }
-    auto interface = values.find("com.intel.spdmd_secure_session.spdm_device");
-    if (interface == values.end())
-    {
-        phosphor::logging::log<phosphor::logging::level::INFO>(
-            (std::string("Failed to find secure session interface on path :") +
-             objectPath)
-                .c_str());
-        return;
-    }
-    auto allProperties = interface->second;
-    auto sessionItr = allProperties.find("SPDMSessionEstablished");
-    if (sessionItr == allProperties.end())
-    {
-        return;
-    }
-    if (std::get<bool>(sessionItr->second))
-    {
-        allEndpoints.at(devID).enableSPDMRoute();
-    }
-    else
-    {
-        allEndpoints.at(devID).disableSPDMRoute();
-    }
-}
-void MCTPImpl::handleSPDMEndpointRemoval(
-    const std::string objectPath,
-    const std::vector<std::string>& dbusInterfaces)
-{
-    (void)(dbusInterfaces);
-    auto optDevID = extractDeviceIDFromObjectPath(objectPath);
-    if (!optDevID.has_value())
-    {
-        phosphor::logging::log<phosphor::logging::level::INFO>(
-            (std::string("Failed to extract SPDM endpoint information from  ") +
-             objectPath)
-                .c_str());
-        return;
-    }
-    DeviceID devID(optDevID.value());
-    if (!allEndpoints.contains(devID))
-    {
-        std::stringstream ss;
-        ss << "Ignoring " << objectPath << " since " << devID
-           << " is not yet signalled by cc mctpd";
-        phosphor::logging::log<phosphor::logging::level::WARNING>(
-            ss.str().c_str());
-        return;
-    }
-    allEndpoints.erase(devID);
-}
-
 void MCTPImpl::handleEndpointAddition(
     const std::string objectPath,
     const DictType<std::string,
@@ -871,27 +963,26 @@ void MCTPImpl::handleEndpointAddition(
         return;
     }
     DeviceID devID(optDevID.value());
+    std::string uuid = "";
     auto uuidInterfaceItr = values.find("xyz.openbmc_project.Common.UUID");
-    if (uuidInterfaceItr == values.end())
+    if (uuidInterfaceItr != values.end())
     {
-        return;
+        auto allProperties = uuidInterfaceItr->second;
+        auto uuidItr = allProperties.find("UUID");
+        if (uuidItr != allProperties.end())
+        {
+            uuid = std::get<std::string>(uuidItr->second);
+        }
     }
-    auto allProperties = uuidInterfaceItr->second;
-    auto uuidItr = allProperties.find("UUID");
-    if (uuidItr == allProperties.end())
-    {
-        return;
-    }
-    std::string uuid = std::get<std::string>(uuidItr->second);
     auto endpointsInterfaceItr =
         values.find("xyz.openbmc_project.MCTP.Endpoint");
     if (endpointsInterfaceItr == values.end())
     {
         return;
     }
-    allProperties = endpointsInterfaceItr->second;
+    auto allProperties = endpointsInterfaceItr->second;
     auto supportedMessageTypeItr = allProperties.find("SupportedMessageTypes");
-    auto vdmTypesItr = allProperties.find("VDMTypes");
+    auto vdmTypesItr = allProperties.find("VendorDefinedMessageTypes");
     if (supportedMessageTypeItr == allProperties.end() ||
         vdmTypesItr == allProperties.end())
     {
@@ -899,7 +990,14 @@ void MCTPImpl::handleEndpointAddition(
     }
     auto supportedMessageTypes =
         std::get<std::vector<uint8_t>>(supportedMessageTypeItr->second);
-    auto vdmTypes = std::get<std::vector<uint16_t>>(vdmTypesItr->second);
+    auto vdmSupportEntries =
+        std::get<std::vector<VendorDefinedMessageType>>(vdmTypesItr->second);
+    std::vector<uint16_t> vdmTypes;
+    vdmTypes.reserve(vdmSupportEntries.size());
+    for (const auto& entry : vdmSupportEntries)
+    {
+        vdmTypes.push_back(std::get<2>(entry));
+    }
     EndpointInfo epInfo(devID, uuid, supportedMessageTypes, vdmTypes,
                         isOwnEid(devID));
     if (allEndpoints.contains(devID))
@@ -908,8 +1006,10 @@ void MCTPImpl::handleEndpointAddition(
         {
             return;
         }
+        // Remove endpoint if ep_info has changed
+        allEndpoints.erase(devID);
     }
-    allEndpoints.insert(std::make_pair(devID, epInfo));
+    allEndpoints.emplace(devID, epInfo);
     if (allEndpoints.at(devID).selfEndpoint)
     {
         if (!this->eidChangeCallback)
@@ -934,7 +1034,7 @@ void MCTPImpl::handleEndpointAddition(
                 "ReconfigurationCallback callback is empty");
             return;
         }
-        if (eligibleForReconfigurationCallback(epInfo))
+        if (eligibleForReconfigurationCallback(allEndpoints.at(devID)))
         {
             boost::asio::spawn(
                 connection->get_io_context(),
@@ -944,7 +1044,7 @@ void MCTPImpl::handleEndpointAddition(
                     event.type = mctpw::Event::EventType::deviceAdded;
                     this->networkChangeCallback(this, event, yield);
                 },
-                {});
+                boost::asio::detached);
         }
     }
 }
@@ -978,7 +1078,7 @@ void MCTPImpl::handleEndpointRemoval(const std::string objectPath,
                 }
                 this->networkChangeCallback(this, event, yield);
             },
-            {});
+            boost::asio::detached);
     }
     allEndpoints.erase(devID);
 }
@@ -1000,10 +1100,6 @@ void MCTPImpl::onInterfaceRemoved(sdbusplus::message::message& msg)
     {
         handleIfaceRemoval(objectPath, dbusInterfaces);
     }
-    else if (objectPath.starts_with("/com/intel/spdmd_secure_session/networks"))
-    {
-        handleSPDMEndpointRemoval(objectPath, dbusInterfaces);
-    }
 }
 
 void MCTPImpl::onMessageReceived(sdbusplus::message::message& msg)
@@ -1020,6 +1116,17 @@ void MCTPImpl::onMessageReceived(sdbusplus::message::message& msg)
     std::vector<uint8_t> payload;
 
     msg.read(srcEid, networkId, msgTag, messageType, payload);
+
+    auto binding = estimateBindingType(networkId);
+    if (config.bindingType != BindingType::mctpOverAny)
+    {
+        if (binding != config.bindingType)
+        {
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                "Binding type mismatch. Ignoring message");
+            return;
+        }
+    }
     if (static_cast<MessageType>(messageType) != config.type)
     {
         return;
@@ -1031,12 +1138,18 @@ void MCTPImpl::onMessageReceived(sdbusplus::message::message& msg)
             uint16_t vendorId;
             uint16_t intelVendorMessageId;
         } __attribute__((packed));
-        VendorHeader* vendorHdr =
-            reinterpret_cast<VendorHeader*>(payload.data());
+        if (payload.size() < sizeof(VendorHeader))
+        {
+            phosphor::logging::log<phosphor::logging::level::DEBUG>(
+                "onMessageReceived: payload too short for VendorHeader");
+            return;
+        }
+        VendorHeader vendorHdr{};
+        std::memcpy(&vendorHdr, payload.data(), sizeof(VendorHeader));
 
         if (!config.vendorId || !config.vendorMessageType ||
-            (vendorHdr->vendorId != config.vendorId) ||
-            ((vendorHdr->intelVendorMessageId &
+            (be16toh(vendorHdr.vendorId) != config.vendorId) ||
+            ((be16toh(vendorHdr.intelVendorMessageId) &
               config.vendorMessageType->mask) !=
              (config.vendorMessageType->value &
               config.vendorMessageType->mask)))
@@ -1044,17 +1157,15 @@ void MCTPImpl::onMessageReceived(sdbusplus::message::message& msg)
             return;
         }
     }
-    std::vector<uint8_t> response(payload.size() + 1);
-    std::copy(payload.begin(), payload.end(), response.begin());
-    response[0] = messageType;
+    payload.insert(payload.begin(), messageType);
     if (this->receiveCallback)
     {
-        this->receiveCallback(this, srcEid, false, msgTag, response, 0);
+        this->receiveCallback(this, srcEid, false, msgTag, payload, 0);
     }
     if (this->extReceiveCallback)
     {
         this->extReceiveCallback(this, DeviceID(srcEid, networkId), false,
-                                 msgTag, response, 0);
+                                 msgTag, payload, 0);
     }
 }
 
@@ -1063,24 +1174,30 @@ void MCTPImpl::onMCTPEvent(sdbusplus::message::message& msg)
     static const std::string intfAdded = "InterfacesAdded";
     static const std::string intfRemoved = "InterfacesRemoved";
     static const std::string vdmReceived = "VDMReceived";
-    static const std::string spdmMessageReceived = "MessageReceived";
+    try
+    {
+        std::string sender = msg.get_sender();
+        auto member = msg.get_member();
+        phosphor::logging::log<phosphor::logging::level::DEBUG>(
+            (std::string("MCTP general event from ") + sender).c_str());
 
-    std::string sender = msg.get_sender();
-    auto member = msg.get_member();
-    phosphor::logging::log<phosphor::logging::level::DEBUG>(
-        (std::string("MCTP general event from ") + sender).c_str());
-
-    if (member == intfAdded)
-    {
-        this->onNewInterface(msg);
+        if (member == intfAdded)
+        {
+            this->onNewInterface(msg);
+        }
+        if (member == intfRemoved)
+        {
+            this->onInterfaceRemoved(msg);
+        }
+        else if (member == vdmReceived)
+        {
+            this->onMessageReceived(msg);
+        }
     }
-    if (member == intfRemoved)
+    catch (const std::exception& e)
     {
-        this->onInterfaceRemoved(msg);
-    }
-    else if ((member == vdmReceived) || (member == spdmMessageReceived))
-    {
-        this->onMessageReceived(msg);
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            (std::string("Exception in onMCTPEvent: ") + e.what()).c_str());
     }
 }
 
@@ -1096,12 +1213,6 @@ void MCTPImpl::setExtendedReceiveCallback(
     this->extReceiveCallback = std::move(callback);
 }
 
-void MCTPImpl::initiateSPDMHandshake(
-    HandshakeCallback initiateHandshakeCallback, DeviceID devID, bool connState)
-{
-    // void API
-}
-
 MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
                    const MCTPConfiguration& configIn,
                    const ReconfigurationCallback& networkChangeCb,
@@ -1113,14 +1224,14 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
     setupEndpoints(std::nullopt);
     if (permittedMessageTypes.contains(config.type))
     {
-        struct sockaddr_mctp addr{0};
+        struct sockaddr_mctp addr;
+        std::memset(&addr, 0, sizeof(addr));
         addr.smctp_family = AF_MCTP;
         addr.smctp_network = MCTP_NET_ANY;
         addr.smctp_addr.s_addr = MCTP_ADDR_ANY;
         addr.smctp_type = static_cast<uint8_t>(config.type);
         addr.smctp_tag = MCTP_TAG_OWNER;
-        boost::asio::generic::datagram_protocol::endpoint bindEndPoint{
-            &addr, sizeof(addr)};
+        datagram::endpoint bindEndPoint{&addr, sizeof(addr)};
         bindToEndpoint(bindEndPoint);
     }
     else if (config.type == MessageType::vdpci)
@@ -1138,17 +1249,14 @@ MCTPImpl::MCTPImpl(std::shared_ptr<sdbusplus::asio::connection> conn,
     }
 }
 
-void MCTPImpl::bindToEndpoint(
-    boost::asio::generic::datagram_protocol::endpoint bindEndpoint)
+void MCTPImpl::bindToEndpoint(const datagram::endpoint& bindEndpoint)
 {
     if (boundSockets.contains(bindEndpoint))
     {
         return;
     }
-    auto incomingMsgSocket =
-        std::make_shared<boost::asio::generic::datagram_protocol::socket>(
-            connection->get_io_context(),
-            boost::asio::generic::datagram_protocol{AF_MCTP, 0});
+    auto incomingMsgSocket = std::make_shared<datagram::socket>(
+        connection->get_io_context(), datagram{AF_MCTP, 0});
     std::string warnMsg =
         std::string("binding all messages on all mctp network of type ") +
         std::to_string(static_cast<int>(config.type)) +
@@ -1157,15 +1265,20 @@ void MCTPImpl::bindToEndpoint(
     phosphor::logging::log<phosphor::logging::level::WARNING>(warnMsg.c_str());
     incomingMsgSocket->bind(bindEndpoint);
     incomingMsgSocket->async_wait(
-        boost::asio::generic::datagram_protocol::socket::wait_read,
-        std::bind(&MCTPImpl::handleIncomingMessage, this, incomingMsgSocket,
-                  std::placeholders::_1));
+        datagram::socket::wait_read,
+        [this, incomingMsgSocket, guard = std::weak_ptr<int>(lifeGuard)](
+            const boost::system::error_code& ec) {
+            if (guard.expired())
+            {
+                return; // MCTPImpl destroyed; avoid use-after-free.
+            }
+            handleIncomingMessage(incomingMsgSocket, ec);
+        });
     boundSockets[bindEndpoint] = incomingMsgSocket;
 }
 
 void MCTPImpl::handleIncomingMessage(
-    std::shared_ptr<boost::asio::generic::datagram_protocol::socket>
-        incomingMsgSocket,
+    std::shared_ptr<datagram::socket> incomingMsgSocket,
     const boost::system::error_code& ec)
 {
     if (ec == boost::asio::error::operation_aborted)
@@ -1183,9 +1296,8 @@ void MCTPImpl::handleIncomingMessage(
         readLen = 256;
     }
     std::vector<uint8_t> recvData(readLen);
-    struct sockaddr_mctp addr{0};
-    boost::asio::generic::datagram_protocol::endpoint recvEndPoint{
-        &addr, sizeof(addr)};
+    struct sockaddr_mctp addr{};
+    datagram::endpoint recvEndPoint{&addr, sizeof(addr)};
     std::size_t recvSize = incomingMsgSocket->receive_from(
         boost::asio::mutable_buffer(recvData.data(), recvData.size()),
         recvEndPoint);
@@ -1205,16 +1317,24 @@ void MCTPImpl::handleIncomingMessage(
                            false, addr.smctp_tag & 0x07, recvData, 0);
     }
     incomingMsgSocket->async_wait(
-        boost::asio::generic::datagram_protocol::socket::wait_read,
-        std::bind(&MCTPImpl::handleIncomingMessage, this, incomingMsgSocket,
-                  std::placeholders::_1));
+        datagram::socket::wait_read,
+        [this, incomingMsgSocket, guard = std::weak_ptr<int>(lifeGuard)](
+            const boost::system::error_code& ec) {
+            if (guard.expired())
+            {
+                return; // MCTPImpl destroyed; avoid use-after-free.
+            }
+            handleIncomingMessage(incomingMsgSocket, ec);
+        });
     return;
 }
 
-BindingType MCTPImpl::estimateBindingType(const EndpointInfo& epInfo)
+BindingType MCTPImpl::estimateBindingType(uint32_t networkId)
 {
     // FIXME: Hard-coded network ID to binding type mapping needs review
-    NetworkID networkId = epInfo.devID.networkId();
+    // Get all objects and properties which implement
+    // au.com.codeconstruct.MCTP.Interface1. Check for matchinig network id. And
+    // check interface name for binding type.
 
     switch (networkId)
     {
